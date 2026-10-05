@@ -1,13 +1,23 @@
 import React from "react";
 import { Outlet, NavLink, Link, useLocation } from "react-router-dom";
-import { Home, Users, Wallet, Tag, LayoutGrid, Dumbbell, Bell } from "lucide-react";
+import { Home, Users, Wallet, Tag, LayoutGrid, Dumbbell, Bell, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const desktopNavItems = [
   { to: "/", label: "Home", icon: Home, end: true },
   { to: "/members", label: "Members", icon: Users },
-  { to: "/finance", label: "Finance", icon: Wallet },
   { to: "/plans", label: "Plans", icon: Tag },
+  { to: "/trainers", label: "Trainers", icon: Dumbbell },
+  { to: "/gym-profile", label: "Gym Profile", icon: Building2 },
+  { to: "/finance", label: "Finance", icon: Wallet },
+  { to: "/more", label: "More", icon: LayoutGrid },
+];
+
+const mobileNavItems = [
+  { to: "/", label: "Home", icon: Home, end: true },
+  { to: "/members", label: "Members", icon: Users },
+  { to: "/plans", label: "Plans", icon: Tag },
+  { to: "/trainers", label: "Trainers", icon: Dumbbell },
   { to: "/more", label: "More", icon: LayoutGrid },
 ];
 
@@ -28,7 +38,7 @@ export default function Layout() {
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map((item) => (
+          {desktopNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -90,7 +100,7 @@ export default function Layout() {
       {/* Mobile bottom navigation */}
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-lg border-t border-border safe-bottom">
         <div className="flex items-stretch justify-around px-2 h-16">
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const active =
               item.to === "/"
                 ? location.pathname === "/"
