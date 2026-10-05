@@ -11,12 +11,18 @@ import {
   Eye,
   AlertTriangle,
   Users,
-  Calendar,
-  Layers,
+  MoreVertical,
   X,
-  Sparkles,
+  Power,
+  ArrowLeft,
 } from "lucide-react";
-import { EmptyState, PageHeader, Badge } from "@/components/ui-shared";
+import {
+  EmptyState,
+  PageHeader,
+  Badge,
+  MobileBottomSheet,
+  MobileFullFormPanel,
+} from "@/components/ui-shared";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,12 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,25 +55,112 @@ const DURATION_UNITS = [
   { unit: "Years", multiplier: 365 },
 ];
 
+/**
+ * Radio button toggle component:
+ * Left = OFF (Inactive), Right = ON (Active)
+ * Styled with tactile pill, radio indicators and clear toggle action.
+ */
+export function PlanStatusRadioToggle({
+  active = true,
+  onChange,
+  disabled = false,
+  size = "sm",
+}) {
+  const isLarge = size === "md";
+
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Plan Status Toggle"
+      className={`inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-900 p-0.5 border border-slate-200 dark:border-slate-800 shadow-inner select-none transition-all ${
+        disabled ? "opacity-60 pointer-events-none" : ""
+      }`}
+    >
+      {/* Toggle Left: OFF (Inactive) */}
+      <button
+        type="button"
+        role="radio"
+        aria-checked={!active}
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (active) onChange(false);
+        }}
+        title="Toggle Plan OFF (Inactive)"
+        className={`flex items-center justify-center gap-1.5 rounded-full font-bold transition-all touch-manipulation cursor-pointer ${
+          isLarge ? "px-3.5 py-1.5 text-xs" : "px-2.5 py-1 text-[11px]"
+        } ${
+          !active
+            ? "bg-slate-800 text-white shadow-xs"
+            : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
+        }`}
+      >
+        <span
+          className={`rounded-full transition-all shrink-0 ${
+            isLarge ? "w-2 h-2" : "w-1.5 h-1.5"
+          } ${
+            !active
+              ? "bg-red-400 ring-2 ring-red-400/40"
+              : "border border-slate-400 bg-transparent"
+          }`}
+        />
+        <span>OFF</span>
+      </button>
+
+      {/* Toggle Right: ON (Active) */}
+      <button
+        type="button"
+        role="radio"
+        aria-checked={active}
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!active) onChange(true);
+        }}
+        title="Toggle Plan ON (Active)"
+        className={`flex items-center justify-center gap-1.5 rounded-full font-bold transition-all touch-manipulation cursor-pointer ${
+          isLarge ? "px-3.5 py-1.5 text-xs" : "px-2.5 py-1 text-[11px]"
+        } ${
+          active
+            ? "bg-emerald-600 text-white shadow-xs"
+            : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
+        }`}
+      >
+        <span
+          className={`rounded-full transition-all shrink-0 ${
+            isLarge ? "w-2 h-2" : "w-1.5 h-1.5"
+          } ${
+            active
+              ? "bg-white ring-2 ring-emerald-300/50 animate-pulse"
+              : "border border-slate-400 bg-transparent"
+          }`}
+        />
+        <span>ON</span>
+      </button>
+    </div>
+  );
+}
+
 export default function Plans() {
   const { toast } = useToast();
   const [plans, setPlans] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState("all"); // 'all' | 'on' | 'off'
 
-  // Modals
-  const [formModalOpen, setFormModalOpen] = useState(false);
+  // Mobile Bottom Action Sheet for "⋮"
+  const [actionSheetPlan, setActionSheetPlan] = useState(null);
+
+  // Full Screen Mobile Panels
+  const [formPanelOpen, setFormPanelOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewPanelOpen, setViewPanelOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [planToDelete, setPlanToDelete] = useState(null);
 
-  // Operations state
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  // Benefit dynamic chip input
   const [benefitInput, setBenefitInput] = useState("");
 
   const initialForm = {
@@ -114,7 +201,6 @@ export default function Plans() {
     fetchData();
   }, []);
 
-  // Compute active members per plan
   const memberCountByPlan = useMemo(() => {
     const counts = {};
     members.forEach((m) => {
@@ -124,6 +210,14 @@ export default function Plans() {
     });
     return counts;
   }, [members]);
+
+  const filteredPlans = useMemo(() => {
+    return plans.filter((p) => {
+      if (filterStatus === "on") return p.is_active;
+      if (filterStatus === "off") return !p.is_active;
+      return true;
+    });
+  }, [plans, filterStatus]);
 
   const calculateDays = (value, unit) => {
     const val = parseInt(value, 10) || 1;
@@ -140,21 +234,21 @@ export default function Plans() {
     }
   };
 
-  const openAddModal = () => {
+  const openAddForm = () => {
     setForm({
       ...initialForm,
       benefitsList: [
         "Unlimited gym floor access",
         "Locker and shower room use",
-        "Free initial fitness assessment",
+        "1 Free body assessment",
       ],
     });
     setBenefitInput("");
     setIsEditMode(false);
-    setFormModalOpen(true);
+    setFormPanelOpen(true);
   };
 
-  const openEditModal = (plan) => {
+  const openEditForm = (plan) => {
     const rawBenefits = plan.benefits || "";
     const list = rawBenefits
       ? rawBenefits
@@ -176,13 +270,15 @@ export default function Plans() {
     });
     setBenefitInput("");
     setIsEditMode(true);
-    setFormModalOpen(true);
-    if (viewModalOpen) setViewModalOpen(false);
+    setActionSheetPlan(null);
+    setFormPanelOpen(true);
+    if (viewPanelOpen) setViewPanelOpen(false);
   };
 
-  const openViewModal = (plan) => {
+  const openViewProfile = (plan) => {
     setSelectedPlan(plan);
-    setViewModalOpen(true);
+    setActionSheetPlan(null);
+    setViewPanelOpen(true);
   };
 
   const handleAddBenefit = () => {
@@ -204,7 +300,7 @@ export default function Plans() {
   };
 
   const handleSavePlan = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!form.name.trim() || !form.price) {
       toast({
         title: "Validation error",
@@ -234,60 +330,57 @@ export default function Plans() {
       if (isEditMode && form.id) {
         const updated = await client.entities.MembershipPlan.update(form.id, payload);
         setPlans((prev) => prev.map((p) => (p.id === form.id ? updated : p)));
-        if (selectedPlan?.id === form.id) {
-          setSelectedPlan(updated);
-        }
+        if (selectedPlan?.id === form.id) setSelectedPlan(updated);
         toast({
-          title: "Membership plan updated",
-          description: `${updated.name} has been updated successfully.`,
+          title: "Plan updated",
+          description: `${updated.name} updated successfully.`,
         });
       } else {
         const created = await client.entities.MembershipPlan.create(payload);
         setPlans((prev) => [created, ...prev]);
         toast({
-          title: "Membership plan created",
-          description: `${created.name} is now available for new memberships.`,
+          title: "Plan created",
+          description: `${created.name} is now available.`,
         });
       }
 
-      setFormModalOpen(false);
+      setFormPanelOpen(false);
     } catch (err) {
-      console.error(err);
-      toast({
-        title: "Failed to save plan",
-        description: err.message || "An error occurred.",
-        variant: "destructive",
-      });
+      toast({ title: "Failed to save plan", description: err.message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleActive = async (plan) => {
+  const handlePlanStatusChange = async (plan, newStatus) => {
+    if (Boolean(plan.is_active) === Boolean(newStatus)) return;
     try {
-      const nextStatus = !plan.is_active;
       const updated = await client.entities.MembershipPlan.update(plan.id, {
-        is_active: nextStatus,
+        is_active: newStatus,
       });
       setPlans((prev) => prev.map((p) => (p.id === plan.id ? updated : p)));
-      if (selectedPlan?.id === plan.id) {
-        setSelectedPlan(updated);
-      }
+      if (selectedPlan?.id === plan.id) setSelectedPlan(updated);
       toast({
-        title: nextStatus ? "Plan activated" : "Plan deactivated",
-        description: `${plan.name} is now ${nextStatus ? "active" : "inactive"}.`,
+        title: newStatus ? "Plan Toggled ON" : "Plan Toggled OFF",
+        description: `${plan.name} is now ${newStatus ? "Active (ON)" : "Inactive (OFF)"}.`,
       });
     } catch (err) {
       toast({
-        title: "Status change failed",
+        title: "Status update failed",
         description: err.message,
         variant: "destructive",
       });
     }
   };
 
+  const toggleActive = (plan) => {
+    handlePlanStatusChange(plan, !plan.is_active);
+    setActionSheetPlan(null);
+  };
+
   const promptDeletePlan = (plan) => {
     setPlanToDelete(plan);
+    setActionSheetPlan(null);
     setDeleteConfirmOpen(true);
   };
 
@@ -298,21 +391,14 @@ export default function Plans() {
       await client.entities.MembershipPlan.delete(planToDelete.id);
       setPlans((prev) => prev.filter((p) => p.id !== planToDelete.id));
       if (selectedPlan?.id === planToDelete.id) {
-        setViewModalOpen(false);
+        setViewPanelOpen(false);
         setSelectedPlan(null);
       }
-      toast({
-        title: "Plan deleted",
-        description: `${planToDelete.name} was removed.`,
-      });
+      toast({ title: "Plan deleted", description: `${planToDelete.name} was removed.` });
       setDeleteConfirmOpen(false);
       setPlanToDelete(null);
     } catch (err) {
-      toast({
-        title: "Delete failed",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
     } finally {
       setDeleting(false);
     }
@@ -326,21 +412,15 @@ export default function Plans() {
         is_active: false,
       });
       setPlans((prev) => prev.map((p) => (p.id === planToDelete.id ? updated : p)));
-      if (selectedPlan?.id === planToDelete.id) {
-        setSelectedPlan(updated);
-      }
+      if (selectedPlan?.id === planToDelete.id) setSelectedPlan(updated);
       toast({
         title: "Plan deactivated",
-        description: `${planToDelete.name} was marked inactive to preserve assigned members.`,
+        description: `${planToDelete.name} is now marked inactive.`,
       });
       setDeleteConfirmOpen(false);
       setPlanToDelete(null);
     } catch (err) {
-      toast({
-        title: "Deactivation failed",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error deactivating", description: err.message, variant: "destructive" });
     } finally {
       setDeleting(false);
     }
@@ -349,8 +429,8 @@ export default function Plans() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <div className="w-9 h-9 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-3" />
-        <p className="text-sm text-muted-foreground font-medium">Loading Membership Plans...</p>
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-3" />
+        <p className="text-xs text-muted-foreground font-medium">Loading Plans...</p>
       </div>
     );
   }
@@ -358,36 +438,75 @@ export default function Plans() {
   const assignedMembersCount = planToDelete ? memberCountByPlan[planToDelete.id] || 0 : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
+      {/* Mobile-First Header: ← Membership Plans     + */}
       <PageHeader
         title="Membership Plans"
-        subtitle={`${plans.length} configured plans • ${plans.filter((p) => p.is_active).length} active`}
+        subtitle={`${plans.length} total plans`}
         action={
-          <Button
-            onClick={openAddModal}
-            className="bg-primary text-primary-foreground gap-1.5 rounded-xl shadow-sm hover:bg-primary/90 h-10 px-4 text-xs font-semibold"
+          <button
+            type="button"
+            onClick={openAddForm}
+            className="w-11 h-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:bg-primary/90 transition-all active:scale-95 touch-manipulation"
+            aria-label="Add Plan"
           >
-            <Plus className="w-4 h-4" strokeWidth={2.5} />
-            <span>Add Plan</span>
-          </Button>
+            <Plus className="w-5 h-5" strokeWidth={2.6} />
+          </button>
         }
       />
 
-      {plans.length === 0 ? (
+      {/* Quick Status Filter Tabs: [All] [● ON] [○ OFF] */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+        {[
+          { key: "all", label: `All (${plans.length})` },
+          { key: "on", label: `● ON (${plans.filter((p) => p.is_active).length})` },
+          { key: "off", label: `○ OFF (${plans.filter((p) => !p.is_active).length})` },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setFilterStatus(tab.key)}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors border ${
+              filterStatus === tab.key
+                ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                : "bg-card text-muted-foreground border-border hover:bg-muted"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Full-Width Mobile Plan Cards Stack */}
+      {filteredPlans.length === 0 ? (
         <EmptyState
           icon={Tag}
-          title="No membership plans yet"
-          description="Create membership tiers with flexible durations (days, weeks, months, years) and customizable member benefits."
+          title={plans.length === 0 ? "No membership plans yet" : `No ${filterStatus.toUpperCase()} plans found`}
+          description={
+            plans.length === 0
+              ? "Create membership tiers with custom pricing, durations, and included benefits."
+              : `There are currently no plans in the ${filterStatus.toUpperCase()} status.`
+          }
           action={
-            <Button onClick={openAddModal} className="bg-primary text-white rounded-xl">
-              <Plus className="w-4 h-4 mr-1.5" />
-              Create First Plan
-            </Button>
+            plans.length === 0 ? (
+              <Button onClick={openAddForm} className="bg-primary text-white rounded-xl h-11 px-5 text-xs font-bold">
+                <Plus className="w-4 h-4 mr-1.5" />
+                Create Plan
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setFilterStatus("all")}
+                className="rounded-xl h-10 px-4 text-xs font-semibold"
+              >
+                Show All Plans
+              </Button>
+            )
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {plans.map((p) => {
+        <div className="space-y-3">
+          {filteredPlans.map((p) => {
             const memberCount = memberCountByPlan[p.id] || 0;
             const benefitsList = (p.benefits || "")
               .split("\n")
@@ -397,129 +516,84 @@ export default function Plans() {
             return (
               <div
                 key={p.id}
-                className={`rounded-2xl border p-5 transition-all flex flex-col justify-between ${
-                  p.is_active
-                    ? "bg-white border-border shadow-xs"
-                    : "bg-muted/40 border-border/70 opacity-90"
-                }`}
+                className="w-full rounded-2xl bg-card border border-border p-4 shadow-xs flex flex-col gap-3 transition-all"
               >
-                <div>
-                  {/* Card Header: Name, Price, Switch */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openViewModal(p)}
-                          className="font-bold text-foreground text-base hover:text-primary transition-colors text-left truncate"
-                        >
-                          {p.name}
-                        </button>
-                        <Badge variant={p.is_active ? "green" : "red"} className="text-[10px]">
-                          {p.is_active ? "ON" : "OFF"}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-baseline gap-1 mt-1.5">
-                        <IndianRupee className="w-4 h-4 text-primary mt-0.5" />
-                        <span className="text-2xl font-bold text-primary tracking-tight">
-                          {(p.price || 0).toLocaleString("en-IN")}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={p.is_active}
-                        onCheckedChange={() => toggleActive(p)}
-                        aria-label="Toggle active status"
-                      />
-                    </div>
+                {/* 1. Top row: Name + Radio Toggle Left (OFF) / Right (ON) */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        p.is_active ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/30"
+                      }`}
+                    />
+                    <h3
+                      onClick={() => openViewProfile(p)}
+                      className="font-bold text-base text-foreground truncate cursor-pointer hover:text-primary transition-colors"
+                    >
+                      {p.name}
+                    </h3>
                   </div>
 
-                  {/* Duration & Active Members badges */}
-                  <div className="flex flex-wrap items-center gap-2 mt-3">
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-secondary px-2.5 py-1 rounded-full">
-                      <Clock className="w-3 h-3 text-primary" />
-                      {p.duration_days} days
-                      {p.duration_unit && p.duration_unit !== "Days" && (
-                        <span className="text-[10px] text-muted-foreground/80">
-                          ({p.duration_value || 1} {p.duration_unit})
-                        </span>
-                      )}
-                    </span>
-
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground bg-secondary px-2.5 py-1 rounded-full">
-                      <Users className="w-3 h-3 text-primary" />
-                      {memberCount} active {memberCount === 1 ? "member" : "members"}
-                    </span>
-                  </div>
-
-                  {/* Description if present */}
-                  {p.description && (
-                    <p className="text-xs text-muted-foreground mt-2.5 line-clamp-2">
-                      {p.description}
-                    </p>
-                  )}
-
-                  {/* Benefits */}
-                  {benefitsList.length > 0 && (
-                    <div className="mt-3.5 pt-3 border-t border-border/70">
-                      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                        Included Benefits
-                      </p>
-                      <ul className="space-y-1.5">
-                        {benefitsList.slice(0, 4).map((b, idx) => (
-                          <li
-                            key={idx}
-                            className="text-xs text-foreground/85 flex items-start gap-1.5"
-                          >
-                            <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                            <span className="truncate">{b}</span>
-                          </li>
-                        ))}
-                        {benefitsList.length > 4 && (
-                          <li className="text-[11px] text-primary font-semibold pl-5">
-                            +{benefitsList.length - 4} more benefits
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
+                  {/* Radio button toggle: Left (OFF) and Right (ON) */}
+                  <PlanStatusRadioToggle
+                    active={Boolean(p.is_active)}
+                    onChange={(newVal) => handlePlanStatusChange(p, newVal)}
+                  />
                 </div>
 
-                {/* Bottom Actions */}
-                <div className="flex items-center justify-between gap-2 pt-3.5 mt-4 border-t border-border/70">
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openViewModal(p)}
-                      className="h-8 rounded-xl px-2.5 text-xs text-foreground border-border hover:bg-muted"
-                    >
-                      <Eye className="w-3.5 h-3.5 mr-1" />
-                      View
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditModal(p)}
-                      className="h-8 rounded-xl px-2.5 text-xs text-foreground border-border hover:bg-muted"
-                    >
-                      <Edit2 className="w-3.5 h-3.5 mr-1" />
-                      Edit
-                    </Button>
+                {/* 2. Price and Duration */}
+                <div className="flex items-baseline justify-between pt-1 border-t border-border/60">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xl sm:text-2xl font-black text-foreground">
+                      ₹{(p.price || 0).toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      / {p.duration_days} days
+                    </span>
                   </div>
 
+                  <span className="text-xs font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                    {memberCount} active {memberCount === 1 ? "member" : "members"}
+                  </span>
+                </div>
+
+                {/* 3. Included Benefits List */}
+                {benefitsList.length > 0 && (
+                  <div className="space-y-1.5 pt-1 text-xs text-foreground/85">
+                    {benefitsList.slice(0, 3).map((b, i) => (
+                      <div key={i} className="flex items-start gap-1.5 truncate">
+                        <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                        <span className="truncate">{b}</span>
+                      </div>
+                    ))}
+                    {benefitsList.length > 3 && (
+                      <p className="text-[11px] text-primary font-bold pl-5">
+                        +{benefitsList.length - 3} more benefits
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 4. Action Row: [View Plan] and "⋮" Menu */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => promptDeletePlan(p)}
-                    className="h-8 rounded-xl px-2.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    onClick={() => openViewProfile(p)}
+                    className="flex-1 rounded-xl h-10 border-border text-xs font-bold text-foreground hover:bg-muted"
                   >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    Delete
+                    <Eye className="w-3.5 h-3.5 mr-1 text-primary" />
+                    View Plan
                   </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActionSheetPlan(p)}
+                    className="w-10 h-10 rounded-xl hover:bg-muted border border-border flex items-center justify-center text-foreground transition-colors touch-manipulation shrink-0"
+                    aria-label="Plan Actions"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             );
@@ -527,348 +601,333 @@ export default function Plans() {
         </div>
       )}
 
-      {/* Add / Edit Membership Plan Modal Dialog */}
-      <Dialog open={formModalOpen} onOpenChange={setFormModalOpen}>
-        <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto no-scrollbar p-0 rounded-3xl bg-white border border-border">
-          <div className="sticky top-0 bg-white z-20 px-6 pt-5 pb-3 border-b border-border">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-bold text-foreground">
-                {isEditMode ? "Edit Membership Plan" : "Add Membership Plan"}
-              </DialogTitle>
-            </DialogHeader>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Configure plan pricing, flexible durations, benefits and visibility.
+      {/* Plan Action Bottom Sheet */}
+      <MobileBottomSheet
+        open={Boolean(actionSheetPlan)}
+        onClose={() => setActionSheetPlan(null)}
+        title={actionSheetPlan?.name || "Plan Actions"}
+      >
+        <div className="space-y-1.5 pb-2">
+          <button
+            type="button"
+            onClick={() => actionSheetPlan && openViewProfile(actionSheetPlan)}
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted text-left font-semibold text-xs sm:text-sm text-foreground transition-colors"
+          >
+            <Eye className="w-4 h-4 text-primary" />
+            <span>View Plan Details</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => actionSheetPlan && openEditForm(actionSheetPlan)}
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted text-left font-semibold text-xs sm:text-sm text-foreground transition-colors"
+          >
+            <Edit2 className="w-4 h-4 text-primary" />
+            <span>Edit Plan</span>
+          </button>
+          <div className="pt-2 border-t border-border">
+            <button
+              type="button"
+              onClick={() => actionSheetPlan && promptDeletePlan(actionSheetPlan)}
+              className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-red-50 text-left font-semibold text-xs sm:text-sm text-red-600 transition-colors"
+            >
+              <Trash2 className="w-4 h-4 text-red-600" />
+              <span>Delete Plan</span>
+            </button>
+          </div>
+        </div>
+      </MobileBottomSheet>
+
+      {/* Full-Screen Add / Edit Plan Panel */}
+      <MobileFullFormPanel
+        open={formPanelOpen}
+        onClose={() => setFormPanelOpen(false)}
+        title={isEditMode ? "Edit Membership Plan" : "Add Membership Plan"}
+        subtitle="Configure pricing, duration and member perks"
+        submitLabel={isEditMode ? "Save Plan" : "Create Plan"}
+        onSubmit={handleSavePlan}
+        isSubmitting={saving}
+      >
+        <form onSubmit={handleSavePlan} className="space-y-4">
+          <div>
+            <Label className="text-xs font-semibold">Plan Name *</Label>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              placeholder="e.g. Annual Elite"
+              className="mt-1 rounded-xl h-11 text-xs sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Price (₹) *</Label>
+            <div className="relative mt-1">
+              <IndianRupee className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                type="number"
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                required
+                placeholder="11999"
+                className="pl-9 rounded-xl h-11 text-xs sm:text-sm font-semibold"
+              />
+            </div>
+          </div>
+
+          {/* Duration Value and Unit */}
+          <div>
+            <Label className="text-xs font-semibold">Duration Length *</Label>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <Input
+                type="number"
+                min="1"
+                value={form.duration_value}
+                onChange={(e) => setForm({ ...form, duration_value: e.target.value })}
+                required
+                placeholder="30"
+                className="rounded-xl h-11 text-xs"
+              />
+              <Select
+                value={form.duration_unit}
+                onValueChange={(val) => setForm({ ...form, duration_unit: val })}
+              >
+                <SelectTrigger className="rounded-xl h-11 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DURATION_UNITS.map((u) => (
+                    <SelectItem key={u.unit} value={u.unit}>
+                      {u.unit}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5 font-medium">
+              Calculates to {calculateDays(form.duration_value, form.duration_unit)} total days.
             </p>
           </div>
 
-          <form onSubmit={handleSavePlan} className="p-6 space-y-4">
-            <div>
-              <Label className="text-xs font-semibold">Plan Name *</Label>
+          {/* Dynamic Benefits */}
+          <div>
+            <Label className="text-xs font-semibold">Benefits & Perks</Label>
+            <div className="flex gap-2 mt-1">
               <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-                placeholder="e.g. Annual Elite, VIP All-Access"
-                className="mt-1 rounded-xl text-sm"
+                value={benefitInput}
+                onChange={(e) => setBenefitInput(e.target.value)}
+                placeholder="Add perk (e.g. Free gym kit)"
+                className="rounded-xl h-11 text-xs"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddBenefit();
+                  }
+                }}
               />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold">Price (₹) *</Label>
-                <div className="relative mt-1">
-                  <IndianRupee className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-                  <Input
-                    type="number"
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: e.target.value })}
-                    required
-                    placeholder="11999"
-                    className="pl-9 rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold">Active Status</Label>
-                <div className="flex items-center justify-between p-2.5 rounded-xl border border-border mt-1">
-                  <span className="text-xs font-medium text-foreground">
-                    {form.is_active ? "Enabled (Available for signups)" : "Disabled (Hidden)"}
-                  </span>
-                  <Switch
-                    checked={form.is_active}
-                    onCheckedChange={(val) => setForm({ ...form, is_active: val })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Duration and Unit */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold">Duration Length *</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={form.duration_value}
-                  onChange={(e) => setForm({ ...form, duration_value: e.target.value })}
-                  required
-                  placeholder="30"
-                  className="mt-1 rounded-xl text-sm"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold">Duration Unit</Label>
-                <Select
-                  value={form.duration_unit}
-                  onValueChange={(val) => setForm({ ...form, duration_unit: val })}
-                >
-                  <SelectTrigger className="mt-1 rounded-xl text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DURATION_UNITS.map((u) => (
-                      <SelectItem key={u.unit} value={u.unit}>
-                        {u.unit}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/80 text-xs text-muted-foreground font-mono flex items-center justify-between">
-              <span>Calculated Membership Span:</span>
-              <span className="font-bold text-foreground">
-                {calculateDays(form.duration_value, form.duration_unit)} Days
-              </span>
-            </div>
-
-            <div>
-              <Label className="text-xs font-semibold">Description</Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Brief summary of who this plan is tailored for..."
-                rows={2}
-                className="mt-1 rounded-xl text-sm"
-              />
-            </div>
-
-            {/* Dynamic Benefits Section */}
-            <div>
-              <Label className="text-xs font-semibold">Dynamic Benefits & Perks</Label>
-              <div className="flex gap-2 mt-1">
-                <Input
-                  value={benefitInput}
-                  onChange={(e) => setBenefitInput(e.target.value)}
-                  placeholder="Add a perk (e.g. Free gym kit, VIP locker)"
-                  className="rounded-xl text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddBenefit();
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={handleAddBenefit}
-                  className="bg-primary text-white rounded-xl px-4 text-xs font-semibold"
-                >
-                  Add Perk
-                </Button>
-              </div>
-
-              {/* Benefits list chips */}
-              <div className="mt-2.5 space-y-1.5">
-                {form.benefitsList.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between gap-2 p-2 rounded-xl bg-accent/40 border border-border text-xs text-foreground"
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="truncate">{item}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveBenefit(idx)}
-                      className="text-muted-foreground hover:text-red-600 p-1"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex items-center gap-3 pt-4 border-t border-border">
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => setFormModalOpen(false)}
-                className="flex-1 rounded-xl h-11 border-border text-xs font-semibold"
+                onClick={handleAddBenefit}
+                className="bg-primary text-white rounded-xl px-4 text-xs font-bold h-11"
               >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={saving}
-                className="flex-1 rounded-xl h-11 bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90"
-              >
-                {saving
-                  ? isEditMode
-                    ? "Saving Changes..."
-                    : "Creating Plan..."
-                  : isEditMode
-                  ? "Save Plan"
-                  : "Create Plan"}
+                Add
               </Button>
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
-      {/* View Membership Plan Detail Modal */}
-      {selectedPlan && (
-        <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-          <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto no-scrollbar p-0 rounded-3xl bg-white border border-border">
-            <div className="bg-gradient-to-br from-foreground to-foreground/90 text-white p-6 rounded-t-3xl">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-bold">{selectedPlan.name}</h3>
-                    <Badge variant={selectedPlan.is_active ? "green" : "red"} className="text-[10px]">
-                      {selectedPlan.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-baseline gap-1 mt-2">
-                    <IndianRupee className="w-5 h-5 text-primary" />
-                    <span className="text-3xl font-extrabold text-primary">
-                      {(selectedPlan.price || 0).toLocaleString("en-IN")}
-                    </span>
-                  </div>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openEditModal(selectedPlan)}
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl text-xs h-8"
+            <div className="mt-2.5 space-y-1.5">
+              {form.benefitsList.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-muted/60 border border-border text-xs text-foreground"
                 >
-                  <Edit2 className="w-3.5 h-3.5 mr-1" />
-                  Edit Plan
-                </Button>
-              </div>
+                  <span className="flex items-center gap-1.5 truncate">
+                    <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="truncate">{item}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveBenefit(idx)}
+                    className="text-muted-foreground hover:text-red-600 p-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs font-semibold">Description</Label>
+            <Textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Brief overview..."
+              rows={2}
+              className="mt-1 rounded-xl text-xs"
+            />
+          </div>
+
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-muted/40 border border-border">
+            <div>
+              <span className="text-xs font-bold text-foreground block">
+                Plan Availability
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Toggle left for OFF, right for ON
+              </p>
+            </div>
+            <PlanStatusRadioToggle
+              active={Boolean(form.is_active)}
+              onChange={(val) => setForm((prev) => ({ ...prev, is_active: val }))}
+              size="md"
+            />
+          </div>
+        </form>
+      </MobileFullFormPanel>
+
+      {/* View Plan Details Full Screen Mobile View */}
+      {selectedPlan && viewPanelOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background sm:items-center sm:justify-center animate-in fade-in duration-200">
+          <div
+            className="hidden sm:block fixed inset-0 bg-black/60"
+            onClick={() => setViewPanelOpen(false)}
+          />
+
+          <div className="relative w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-xl bg-card sm:rounded-3xl shadow-2xl z-10 flex flex-col overflow-hidden">
+            <div className="sticky top-0 bg-card/95 backdrop-blur-md px-4 py-3 border-b border-border flex items-center justify-between z-20">
+              <button
+                type="button"
+                onClick={() => setViewPanelOpen(false)}
+                className="w-10 h-10 -ml-1 rounded-xl hover:bg-muted flex items-center justify-center text-foreground touch-manipulation"
+              >
+                <ArrowLeft className="w-5 h-5" strokeWidth={2.5} />
+              </button>
+              <p className="font-bold text-sm sm:text-base text-foreground truncate">
+                {selectedPlan.name}
+              </p>
+              <button
+                type="button"
+                onClick={() => setActionSheetPlan(selectedPlan)}
+                className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-foreground touch-manipulation"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="p-6 space-y-5">
-              {/* Stats overview */}
-              <div className="grid grid-cols-2 gap-3 p-4 bg-muted/40 rounded-2xl border border-border text-xs">
+            <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 pb-20">
+              {/* Header card */}
+              <div className="p-4 bg-muted/40 rounded-2xl border border-border flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Duration</p>
-                  <p className="text-sm font-bold text-foreground mt-0.5">
-                    {selectedPlan.duration_days} Days
+                  <h3 className="font-extrabold text-2xl text-foreground">
+                    ₹{(selectedPlan.price || 0).toLocaleString("en-IN")}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Valid for {selectedPlan.duration_days} days
                   </p>
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Active Members</p>
-                  <p className="text-sm font-bold text-primary mt-0.5">
-                    {memberCountByPlan[selectedPlan.id] || 0} Members enrolled
-                  </p>
-                </div>
+                <PlanStatusRadioToggle
+                  active={Boolean(selectedPlan.is_active)}
+                  onChange={(val) => handlePlanStatusChange(selectedPlan, val)}
+                  size="md"
+                />
               </div>
 
-              {selectedPlan.description && (
-                <div>
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground mb-1">
-                    About this plan
-                  </h4>
-                  <p className="text-xs text-foreground/80 leading-relaxed">
-                    {selectedPlan.description}
-                  </p>
-                </div>
-              )}
+              {/* Enrolled members */}
+              <div className="p-4 bg-card rounded-2xl border border-border flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Enrolled Members:</span>
+                <span className="font-bold text-primary text-sm">
+                  {memberCountByPlan[selectedPlan.id] || 0} Members
+                </span>
+              </div>
 
-              {/* Benefits list */}
-              <div>
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground mb-2">
-                  Included Benefits & Amenities
-                </h4>
-                <div className="space-y-2">
+              {/* Benefits */}
+              <div className="p-4 bg-card rounded-2xl border border-border space-y-2">
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground">
+                  Included Benefits
+                </p>
+                <div className="space-y-1.5 text-xs text-foreground/85">
                   {(selectedPlan.benefits || "")
                     .split("\n")
                     .map((b) => b.trim())
                     .filter(Boolean)
                     .map((b, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-border text-xs text-foreground"
-                      >
-                        <Check className="w-4 h-4 text-primary shrink-0" />
+                      <div key={i} className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                         <span>{b}</span>
                       </div>
                     ))}
                 </div>
               </div>
-
-              {/* Footer actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-border">
-                <Button
-                  variant="outline"
-                  onClick={() => promptDeletePlan(selectedPlan)}
-                  className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold h-10"
-                >
-                  <Trash2 className="w-4 h-4 mr-1.5" />
-                  Delete Plan
-                </Button>
-                <Button
-                  onClick={() => toggleActive(selectedPlan)}
-                  className="bg-primary text-white rounded-xl text-xs font-semibold h-10"
-                >
-                  {selectedPlan.is_active ? "Deactivate Plan" : "Activate Plan"}
-                </Button>
-              </div>
             </div>
-          </DialogContent>
-        </Dialog>
+
+            <div className="p-3 border-t border-border bg-card flex gap-2 safe-bottom">
+              <Button
+                variant="outline"
+                onClick={() => openEditForm(selectedPlan)}
+                className="flex-1 rounded-xl h-11 text-xs font-bold border-border text-foreground hover:bg-muted"
+              >
+                Edit Plan
+              </Button>
+              <Button
+                onClick={() => handlePlanStatusChange(selectedPlan, !selectedPlan.is_active)}
+                className={`flex-1 rounded-xl h-11 text-xs font-bold text-white transition-colors ${
+                  selectedPlan.is_active
+                    ? "bg-slate-800 hover:bg-slate-900"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+              >
+                {selectedPlan.is_active ? "Toggle OFF" : "Toggle ON"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Delete / Deactivate Plan Confirmation Dialog */}
+      {/* Delete / Deactivate Plan Alert Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent className="rounded-3xl bg-white border border-border max-w-md">
+        <AlertDialogContent className="rounded-3xl bg-card border border-border max-w-sm">
           <AlertDialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center mb-1">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <AlertDialogTitle className="text-lg font-bold text-foreground">
-              {assignedMembersCount > 0
-                ? "Plan Has Active Members"
-                : "Delete Membership Plan?"}
+            <AlertDialogTitle className="text-base font-bold text-foreground">
+              {assignedMembersCount > 0 ? "Plan Has Active Members" : "Delete Membership Plan?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed">
               {assignedMembersCount > 0 ? (
                 <>
                   This plan is currently assigned to{" "}
-                  <strong className="text-foreground">{assignedMembersCount} members</strong>.
-                  Deleting this plan may affect existing memberships. We strongly recommend
-                  deactivating this plan instead so existing members retain their plan history.
+                  <strong className="text-foreground">{assignedMembersCount} members</strong>. We
+                  recommend deactivating it instead of deleting.
                 </>
               ) : (
                 <>
                   Are you sure you want to permanently delete{" "}
-                  <strong className="text-foreground">{planToDelete?.name}</strong>? This action
-                  cannot be undone.
+                  <strong className="text-foreground">{planToDelete?.name}</strong>?
                 </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4 gap-2 sm:justify-end">
+          <AlertDialogFooter className="mt-3 gap-2">
             <AlertDialogCancel
               disabled={deleting}
-              onClick={() => setDeleteConfirmOpen(false)}
-              className="rounded-xl h-10 border-border text-xs font-semibold"
+              className="rounded-xl h-11 border-border text-xs font-semibold"
             >
               Cancel
             </AlertDialogCancel>
-
             {assignedMembersCount > 0 ? (
               <Button
                 type="button"
                 disabled={deleting}
                 onClick={handleDeactivateInstead}
-                className="rounded-xl h-10 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold"
+                className="rounded-xl h-11 bg-amber-600 text-white text-xs font-bold"
               >
-                {deleting ? "Deactivating..." : "Deactivate Instead"}
+                Deactivate Instead
               </Button>
             ) : (
               <AlertDialogAction
                 disabled={deleting}
                 onClick={handleConfirmDelete}
-                className="rounded-xl h-10 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs"
+                className="rounded-xl h-11 bg-red-600 text-white text-xs font-bold"
               >
                 {deleting ? "Deleting..." : "Delete Plan"}
               </AlertDialogAction>

@@ -44,10 +44,14 @@ export default function Wallet() {
 
   return (
     <div>
-      <PageHeader title="Fitaval Wallet" subtitle="B2C revenue & settlements" />
+      <PageHeader
+        title="Fitaval Wallet"
+        subtitle="B2C revenue & settlements"
+        backTo="/settings"
+      />
 
       {/* Balance card */}
-      <div className="rounded-3xl bg-gradient-to-br from-foreground to-foreground/80 text-white p-6 mb-4 relative overflow-hidden">
+      <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white p-6 mb-4 relative overflow-hidden border border-slate-800/80 shadow-md">
         <div className="absolute -right-10 -top-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl" />
         <div className="absolute right-20 -bottom-10 w-32 h-32 bg-primary/30 rounded-full blur-2xl" />
         <div className="relative">
@@ -75,23 +79,23 @@ export default function Wallet() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="rounded-2xl bg-white border border-border p-4">
-          <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center mb-1.5">
-            <TrendingUp className="w-4 h-4 text-green-600" />
+        <div className="rounded-2xl bg-card border border-border p-4 shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-emerald-950/40 flex items-center justify-center mb-1.5">
+            <TrendingUp className="w-4 h-4 text-green-600 dark:text-emerald-400" />
           </div>
           <p className="text-xs text-muted-foreground">Total Earned</p>
           <p className="font-bold text-foreground text-sm">₹{totalEarnings.toLocaleString("en-IN")}</p>
         </div>
-        <div className="rounded-2xl bg-white border border-border p-4">
-          <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mb-1.5">
-            <Percent className="w-4 h-4 text-amber-600" />
+        <div className="rounded-2xl bg-card border border-border p-4 shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center mb-1.5">
+            <Percent className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
           <p className="text-xs text-muted-foreground">Platform Fee</p>
           <p className="font-bold text-foreground text-sm">₹{totalFees.toLocaleString("en-IN")}</p>
         </div>
-        <div className="rounded-2xl bg-white border border-border p-4">
-          <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center mb-1.5">
-            <Download className="w-4 h-4 text-red-600" />
+        <div className="rounded-2xl bg-card border border-border p-4 shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950/40 flex items-center justify-center mb-1.5">
+            <Download className="w-4 h-4 text-red-600 dark:text-red-400" />
           </div>
           <p className="text-xs text-muted-foreground">Withdrawn</p>
           <p className="font-bold text-foreground text-sm">₹{totalWithdrawn.toLocaleString("en-IN")}</p>
@@ -99,7 +103,7 @@ export default function Wallet() {
       </div>
 
       {/* Transaction history */}
-      <div className="rounded-2xl bg-white border border-border p-5">
+      <div className="rounded-2xl bg-card border border-border p-5 shadow-xs">
         <h3 className="font-bold text-foreground mb-3">Transaction History</h3>
         {transactions.length === 0 ? (
           <EmptyState icon={WalletIcon} title="No transactions yet" description="B2C membership purchases will appear here" />
@@ -109,8 +113,8 @@ export default function Wallet() {
               const isCredit = t.type === "credit";
               return (
                 <div key={t.id} className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isCredit ? "bg-green-100" : "bg-red-100"}`}>
-                    {isCredit ? <ArrowDownLeft className="w-5 h-5 text-green-600" /> : <ArrowUpRight className="w-5 h-5 text-red-600" />}
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isCredit ? "bg-green-100 dark:bg-emerald-950/40 text-green-600 dark:text-emerald-400" : "bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400"}`}>
+                    {isCredit ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground text-sm truncate">{t.description || (isCredit ? "B2C Membership" : "Withdrawal")}</p>

@@ -42,6 +42,41 @@
     --sidebar-border: 150 10% 92%;
     --sidebar-ring: 142 71% 40%;
   }
+
+  .dark {
+    --background: 222 25% 10%;
+    --foreground: 210 20% 98%;
+    --card: 222 22% 14%;
+    --card-foreground: 210 20% 98%;
+    --popover: 222 22% 14%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 18% 18%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 222 18% 17%;
+    --muted-foreground: 215 16% 65%;
+    --accent: 142 45% 18%;
+    --accent-foreground: 142 75% 75%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 16% 22%;
+    --input: 222 16% 22%;
+    --ring: 142 71% 45%;
+    --chart-1: 142 71% 45%;
+    --chart-2: 0 0% 90%;
+    --chart-3: 142 40% 60%;
+    --chart-4: 0 0% 70%;
+    --chart-5: 142 71% 40%;
+    --sidebar-background: 222 25% 12%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 142 71% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 18% 18%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 222 16% 22%;
+    --sidebar-ring: 142 71% 45%;
+  }
 }
 
 @layer base {
@@ -51,6 +86,12 @@
 
   body {
     @apply bg-background text-foreground font-body antialiased;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
   }
 }
 
@@ -65,4 +106,41 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* Dark mode surface adaptations */
+.dark .bg-white {
+  background-color: hsl(var(--card)) !important;
+}
+
+.dark .bg-white\/95 {
+  background-color: hsl(var(--card) / 0.95) !important;
+}
+
+.dark .bg-white\/90 {
+  background-color: hsl(var(--card) / 0.90) !important;
+}
+
+.dark .bg-slate-100 {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.dark .bg-muted\/30,
+.dark .bg-muted\/20 {
+  background-color: hsl(var(--background)) !important;
+}
+
+.dark .border-border,
+.dark .border-border\/60,
+.dark .border-border\/70,
+.dark .border-slate-200 {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
 }

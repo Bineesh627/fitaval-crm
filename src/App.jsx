@@ -5,6 +5,7 @@ import { queryClientInstance } from '@/lib/query-client';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { ThemeProvider } from '@/lib/theme';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 import Layout from '@/components/Layout';
@@ -57,6 +58,7 @@ const AppRoutes = () => {
         <Route path="/members" element={<Members />} />
         <Route path="/finance" element={<Finance />} />
         <Route path="/plans" element={<Plans />} />
+        <Route path="/settings" element={<More />} />
         <Route path="/more" element={<More />} />
         <Route path="/gym-profile" element={<GymProfilePage />} />
         <Route path="/trainers" element={<Trainers />} />
@@ -71,15 +73,17 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <ScrollToTop />
-          <AppRoutes />
-        </Router>
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router>
+            <ScrollToTop />
+            <AppRoutes />
+          </Router>
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

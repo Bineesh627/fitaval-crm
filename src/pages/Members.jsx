@@ -7,26 +7,29 @@ import {
   Phone,
   Mail,
   Calendar,
-  IndianRupee,
+  MoreVertical,
   Dumbbell,
-  Clock,
   Trash2,
   Edit2,
   Eye,
   RefreshCw,
   AlertTriangle,
   User,
-  Activity,
   Heart,
-  FileText,
   CreditCard,
-  History,
   CheckCircle2,
-  XCircle,
-  Clock3,
+  MapPin,
+  Clock,
+  ArrowLeft,
 } from "lucide-react";
-import { EmptyState, PageHeader, Badge } from "@/components/ui-shared";
-import { format, addDays, parseISO, differenceInDays } from "date-fns";
+import {
+  EmptyState,
+  PageHeader,
+  Badge,
+  MobileBottomSheet,
+  MobileFullFormPanel,
+} from "@/components/ui-shared";
+import { format, addDays, differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,13 +41,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,19 +69,21 @@ export default function Members() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  // Modals state
-  const [formModalOpen, setFormModalOpen] = useState(false);
+  // Mobile Action Bottom Sheet State for "⋮"
+  const [actionSheetMember, setActionSheetMember] = useState(null);
+
+  // Modals / Full Screen Panels
+  const [formPanelOpen, setFormPanelOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewPanelOpen, setViewPanelOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState(null);
 
-  // Form submit state
+  // Operation state
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Member form state
   const initialForm = {
     id: null,
     name: "",
@@ -135,7 +133,6 @@ export default function Members() {
     fetchData();
   }, []);
 
-  // Recalculate end_date whenever plan_id or start_date changes in the form
   const handlePlanOrDateChange = (newPlanId, newStartDate) => {
     const plan = plans.find((p) => p.id === newPlanId);
     if (plan && newStartDate) {
@@ -185,7 +182,7 @@ export default function Members() {
     });
   }, [members, search, filter]);
 
-  const openAddModal = () => {
+  const openAddForm = () => {
     const defaultPlanId = plans[0]?.id || "";
     const startDate = format(new Date(), "yyyy-MM-dd");
     const plan = plans[0];
@@ -200,10 +197,10 @@ export default function Members() {
       end_date: initialEnd,
     });
     setIsEditMode(false);
-    setFormModalOpen(true);
+    setFormPanelOpen(true);
   };
 
-  const openEditModal = (member) => {
+  const openEditForm = (member) => {
     setForm({
       id: member.id,
       name: member.name || "",
@@ -225,19 +222,19 @@ export default function Members() {
       source: member.source || "manual",
     });
     setIsEditMode(true);
-    setFormModalOpen(true);
-    if (viewModalOpen) {
-      setViewModalOpen(false);
-    }
+    setActionSheetMember(null);
+    setFormPanelOpen(true);
+    if (viewPanelOpen) setViewPanelOpen(false);
   };
 
-  const openViewModal = (member) => {
+  const openViewProfile = (member) => {
     setSelectedMember(member);
-    setViewModalOpen(true);
+    setActionSheetMember(null);
+    setViewPanelOpen(true);
   };
 
   const handleSaveMember = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!form.name.trim() || !form.phone.trim()) {
       toast({
         title: "Validation error",
@@ -277,28 +274,25 @@ export default function Members() {
       if (isEditMode && form.id) {
         const updated = await client.entities.Member.update(form.id, memberPayload);
         setMembers((prev) => prev.map((m) => (m.id === form.id ? updated : m)));
-        if (selectedMember?.id === form.id) {
-          setSelectedMember(updated);
-        }
+        if (selectedMember?.id === form.id) setSelectedMember(updated);
         toast({
-          title: "Member updated successfully",
-          description: `${updated.name}'s profile has been updated.`,
+          title: "Member updated",
+          description: `${updated.name}'s profile was saved successfully.`,
         });
       } else {
         const created = await client.entities.Member.create(memberPayload);
         setMembers((prev) => [created, ...prev]);
         toast({
-          title: "Member added successfully",
-          description: `${created.name} was enrolled in ${created.plan_name || "the gym"}.`,
+          title: "Member created",
+          description: `${created.name} was successfully enrolled.`,
         });
       }
 
-      setFormModalOpen(false);
+      setFormPanelOpen(false);
     } catch (err) {
-      console.error(err);
       toast({
-        title: "Failed to save member",
-        description: err.message || "An unexpected error occurred.",
+        title: "Failed to save",
+        description: err.message,
         variant: "destructive",
       });
     } finally {
@@ -308,6 +302,7 @@ export default function Members() {
 
   const promptDeleteMember = (member) => {
     setMemberToDelete(member);
+    setActionSheetMember(null);
     setDeleteConfirmOpen(true);
   };
 
@@ -318,22 +313,17 @@ export default function Members() {
       await client.entities.Member.delete(memberToDelete.id);
       setMembers((prev) => prev.filter((m) => m.id !== memberToDelete.id));
       if (selectedMember?.id === memberToDelete.id) {
-        setViewModalOpen(false);
+        setViewPanelOpen(false);
         setSelectedMember(null);
       }
       toast({
-        title: "Member deleted successfully",
+        title: "Member deleted",
         description: `${memberToDelete.name} was permanently removed.`,
       });
       setDeleteConfirmOpen(false);
       setMemberToDelete(null);
     } catch (err) {
-      console.error(err);
-      toast({
-        title: "Delete failed",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
     } finally {
       setDeleting(false);
     }
@@ -342,14 +332,7 @@ export default function Members() {
   const handleRenewMembership = async (member) => {
     try {
       const plan = plans.find((p) => p.id === member.plan_id) || plans[0];
-      if (!plan) {
-        toast({
-          title: "No plan found",
-          description: "Please assign a valid membership plan first.",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (!plan) return;
 
       const currentExpiry = member.expiry_date ? new Date(member.expiry_date) : new Date();
       const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
@@ -363,102 +346,95 @@ export default function Members() {
       });
 
       setMembers((prev) => prev.map((m) => (m.id === member.id ? updated : m)));
-      if (selectedMember?.id === member.id) {
-        setSelectedMember(updated);
-      }
+      if (selectedMember?.id === member.id) setSelectedMember(updated);
+      setActionSheetMember(null);
 
       toast({
         title: "Membership renewed",
         description: `${member.name} extended until ${format(newExpiry, "dd MMM yyyy")}.`,
       });
     } catch (err) {
-      toast({
-        title: "Renewal failed",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast({ title: "Renewal failed", description: err.message, variant: "destructive" });
     }
   };
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
-        <div className="w-9 h-9 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-3" />
-        <p className="text-sm text-muted-foreground font-medium">Loading Members...</p>
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-3" />
+        <p className="text-xs text-muted-foreground font-medium">Loading Members...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
+      {/* Mobile-First Header: ← Members   + */}
       <PageHeader
-        title="Members Management"
-        subtitle={`${members.length} registered members`}
+        title="Members"
+        subtitle={`${members.length} total members`}
         action={
-          <Button
-            onClick={openAddModal}
-            className="bg-primary text-primary-foreground gap-1.5 rounded-xl shadow-sm hover:bg-primary/90 h-10 px-4 text-xs font-semibold"
+          <button
+            type="button"
+            onClick={openAddForm}
+            className="w-11 h-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:bg-primary/90 transition-all active:scale-95 touch-manipulation"
+            aria-label="Add Member"
           >
-            <Plus className="w-4 h-4" strokeWidth={2.5} />
-            <span>Add Member</span>
-          </Button>
+            <Plus className="w-5 h-5" strokeWidth={2.6} />
+          </button>
         }
       />
 
-      {/* Dynamic Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-2.5">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, phone, email, plan..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground"
-          />
-        </div>
+      {/* Full-Width Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name, phone, email..."
+          className="w-full pl-10 pr-4 py-3 rounded-2xl bg-card border border-border text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground text-foreground"
+        />
+      </div>
 
-        {/* Filter Pills */}
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          {STATUS_FILTERS.map((f) => (
+      {/* Horizontally scrollable status filter tabs */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 -mx-1 px-1">
+        {STATUS_FILTERS.map((f) => {
+          const count =
+            f.key === "all"
+              ? members.length
+              : members.filter((m) => m.status === f.key).length;
+          return (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all border ${
+              className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all border shrink-0 touch-manipulation ${
                 filter === f.key
                   ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                  : "bg-white border-border text-muted-foreground hover:bg-muted"
+                  : "bg-card border-border text-muted-foreground hover:bg-muted"
               }`}
             >
               {f.label}
-              {f.key !== "all" && (
-                <span className="ml-1 text-[10px] opacity-80">
-                  ({members.filter((m) => m.status === f.key).length})
-                </span>
-              )}
+              <span className="ml-1 opacity-80 text-[10px]">({count})</span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* Member Cards List */}
+      {/* Members List - Mobile Optimized Cards */}
       {filtered.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={search || filter !== "all" ? "No members match your criteria" : "No members yet"}
-          description={
-            search || filter !== "all"
-              ? "Try adjusting your search terms or status filters."
-              : "Add your first gym member to manage attendance, memberships and assigned trainers."
-          }
+          title={search || filter !== "all" ? "No members match filter" : "No members yet"}
+          description="Add your first member to start managing gym memberships, attendance, and coach assignments."
           action={
-            <Button onClick={openAddModal} className="bg-primary text-white rounded-xl">
+            <Button onClick={openAddForm} className="bg-primary text-white rounded-xl h-11 px-5 text-xs font-bold">
               <Plus className="w-4 h-4 mr-1.5" />
-              Add First Member
+              Add Member
             </Button>
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="space-y-3">
           {filtered.map((m) => {
             const daysLeft = m.expiry_date
               ? differenceInDays(new Date(m.expiry_date), new Date())
@@ -467,124 +443,82 @@ export default function Members() {
             return (
               <div
                 key={m.id}
-                className="rounded-2xl bg-white border border-border p-4.5 hover:shadow-xs transition-shadow flex flex-col justify-between gap-3"
+                className="rounded-2xl bg-card border border-border p-4 shadow-xs flex flex-col gap-2.5 transition-all"
               >
-                <div>
-                  {/* Top card header */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
-                        {m.name?.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => openViewModal(m)}
-                          className="font-bold text-foreground text-sm hover:text-primary transition-colors truncate block text-left"
-                        >
-                          {m.name}
-                        </button>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate font-medium">
-                          {m.plan_name || "Monthly Basic"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Status Badge */}
-                    <Badge
-                      variant={
+                {/* 1. Top row: Status indicator + Name + Status Badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className={`w-3 h-3 rounded-full shrink-0 ${
                         m.status === "active"
-                          ? "green"
+                          ? "bg-emerald-500"
                           : m.status === "expiring"
-                          ? "amber"
-                          : "red"
-                      }
-                      className="capitalize shrink-0 text-[11px]"
-                    >
-                      {m.status || "active"}
-                    </Badge>
-                  </div>
-
-                  {/* Details summary */}
-                  <div className="grid grid-cols-2 gap-2 mt-3.5 pt-3 border-t border-border/70 text-xs">
-                    <div className="flex items-center gap-1.5 text-muted-foreground truncate">
-                      <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="truncate">{m.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-muted-foreground truncate justify-end">
-                      <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="truncate">
-                        {m.expiry_date
-                          ? `Expires: ${format(new Date(m.expiry_date), "dd MMM yyyy")}`
-                          : "No expiry set"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Trainer or days badge */}
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-2 pt-2 border-t border-border/40">
-                    <span className="truncate flex items-center gap-1">
-                      <Dumbbell className="w-3 h-3 text-muted-foreground" />
-                      {m.trainer_name ? `Trainer: ${m.trainer_name}` : "No trainer assigned"}
-                    </span>
-                    {daysLeft !== null && (
-                      <span
-                        className={`font-semibold shrink-0 ${
-                          daysLeft < 0
-                            ? "text-red-600"
-                            : daysLeft <= 7
-                            ? "text-amber-600 font-bold"
-                            : "text-emerald-600"
-                        }`}
+                          ? "bg-amber-500"
+                          : "bg-red-500"
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <p
+                        onClick={() => openViewProfile(m)}
+                        className="font-bold text-sm sm:text-base text-foreground truncate cursor-pointer hover:text-primary transition-colors"
                       >
-                        {daysLeft < 0
-                          ? `Expired ${Math.abs(daysLeft)}d ago`
-                          : daysLeft === 0
-                          ? "Expires today"
-                          : `${daysLeft} days remaining`}
-                      </span>
-                    )}
+                        {m.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate font-medium">
+                        {m.plan_name || "Monthly Basic"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Badge
+                    variant={
+                      m.status === "active"
+                        ? "green"
+                        : m.status === "expiring"
+                        ? "amber"
+                        : "red"
+                    }
+                    className="capitalize shrink-0"
+                  >
+                    {m.status || "active"}
+                  </Badge>
+                </div>
+
+                {/* 2. Middle Row: Phone & Expiry Info (Stacked readable) */}
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-1.5 pt-1 text-xs text-muted-foreground border-t border-border/60">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="truncate">{m.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="truncate">
+                      {m.expiry_date
+                        ? `Expires ${format(new Date(m.expiry_date), "dd MMM yyyy")}`
+                        : "No expiry date"}
+                    </span>
                   </div>
                 </div>
 
-                {/* Bottom Card Actions */}
-                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/70">
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openViewModal(m)}
-                      className="h-8 rounded-xl px-2.5 text-xs text-foreground border-border hover:bg-muted"
-                    >
-                      <Eye className="w-3.5 h-3.5 mr-1" />
-                      View
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditModal(m)}
-                      className="h-8 rounded-xl px-2.5 text-xs text-foreground border-border hover:bg-muted"
-                    >
-                      <Edit2 className="w-3.5 h-3.5 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => promptDeleteMember(m)}
-                      className="h-8 rounded-xl px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                      title="Delete member"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                {/* 3. Bottom Row: [View Member] primary action and "⋮" Menu Button */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openViewProfile(m)}
+                    className="flex-1 rounded-xl h-10 border-border text-xs font-bold text-foreground hover:bg-muted"
+                  >
+                    <Eye className="w-3.5 h-3.5 mr-1 text-primary" />
+                    View Member
+                  </Button>
 
                   <button
-                    onClick={() => handleRenewMembership(m)}
-                    className="text-xs font-bold text-primary px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors flex items-center gap-1"
+                    type="button"
+                    onClick={() => setActionSheetMember(m)}
+                    className="w-10 h-10 rounded-xl hover:bg-muted border border-border flex items-center justify-center text-foreground transition-colors touch-manipulation shrink-0"
+                    aria-label="Member Actions"
                   >
-                    <RefreshCw className="w-3 h-3" />
-                    Renew
+                    <MoreVertical className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -593,527 +527,489 @@ export default function Members() {
         </div>
       )}
 
-      {/* Add / Edit Member Modal Dialog */}
-      <Dialog open={formModalOpen} onOpenChange={setFormModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto no-scrollbar p-0 rounded-3xl bg-white border border-border">
-          <div className="sticky top-0 bg-white z-20 px-6 pt-5 pb-3 border-b border-border">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-bold text-foreground">
-                {isEditMode ? "Edit Member" : "Add New Member"}
-              </DialogTitle>
-            </DialogHeader>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isEditMode
-                ? "Update member profile details, membership dates and coach assignments."
-                : "Fill out the registration details to enroll a new member into the CRM."}
-            </p>
+      {/* Member Action Bottom Sheet (View, Edit, Renew, Delete) */}
+      <MobileBottomSheet
+        open={Boolean(actionSheetMember)}
+        onClose={() => setActionSheetMember(null)}
+        title={actionSheetMember?.name || "Member Actions"}
+      >
+        <div className="space-y-1.5 pb-2">
+          <button
+            type="button"
+            onClick={() => actionSheetMember && openViewProfile(actionSheetMember)}
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted text-left font-semibold text-xs sm:text-sm text-foreground transition-colors"
+          >
+            <Eye className="w-4 h-4 text-primary" />
+            <span>View Member Profile</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => actionSheetMember && openEditForm(actionSheetMember)}
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted text-left font-semibold text-xs sm:text-sm text-foreground transition-colors"
+          >
+            <Edit2 className="w-4 h-4 text-primary" />
+            <span>Edit Member Details</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => actionSheetMember && handleRenewMembership(actionSheetMember)}
+            className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted text-left font-semibold text-xs sm:text-sm text-foreground transition-colors"
+          >
+            <RefreshCw className="w-4 h-4 text-primary" />
+            <span>Renew Membership Plan</span>
+          </button>
+          <div className="pt-2 border-t border-border">
+            <button
+              type="button"
+              onClick={() => actionSheetMember && promptDeleteMember(actionSheetMember)}
+              className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-red-50 text-left font-semibold text-xs sm:text-sm text-red-600 transition-colors"
+            >
+              <Trash2 className="w-4 h-4 text-red-600" />
+              <span>Delete Member</span>
+            </button>
+          </div>
+        </div>
+      </MobileBottomSheet>
+
+      {/* Full-Screen Add / Edit Member Panel for Mobile & Desktop */}
+      <MobileFullFormPanel
+        open={formPanelOpen}
+        onClose={() => setFormPanelOpen(false)}
+        title={isEditMode ? "Edit Member" : "Add Member"}
+        subtitle={isEditMode ? "Update personal info and plan" : "Enroll a new gym member"}
+        submitLabel={isEditMode ? "Save Changes" : "Create Member"}
+        onSubmit={handleSaveMember}
+        isSubmitting={saving}
+      >
+        <form onSubmit={handleSaveMember} className="space-y-5">
+          {/* Section: Personal Information */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5" /> Personal Information
+            </h4>
+
+            <div>
+              <Label className="text-xs font-semibold">Full Name *</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                required
+                placeholder="Karan Mehra"
+                className="mt-1 rounded-xl h-11 text-xs sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Phone Number *</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                required
+                placeholder="+91 98787 66554"
+                className="mt-1 rounded-xl h-11 text-xs sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Email Address</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="karan@example.com"
+                className="mt-1 rounded-xl h-11 text-xs sm:text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <Label className="text-xs font-semibold">Gender</Label>
+                <Select
+                  value={form.gender}
+                  onValueChange={(val) => setForm({ ...form, gender: val })}
+                >
+                  <SelectTrigger className="mt-1 rounded-xl h-11 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold">Date of Birth</Label>
+                <Input
+                  type="date"
+                  value={form.date_of_birth}
+                  onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
+                  className="mt-1 rounded-xl h-11 text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Emergency Contact</Label>
+              <Input
+                value={form.emergency_contact}
+                onChange={(e) => setForm({ ...form, emergency_contact: e.target.value })}
+                placeholder="+91 98888 77665 (Father/Spouse)"
+                className="mt-1 rounded-xl h-11 text-xs sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Address</Label>
+              <Input
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Apartment, Street address, City"
+                className="mt-1 rounded-xl h-11 text-xs sm:text-sm"
+              />
+            </div>
           </div>
 
-          <form onSubmit={handleSaveMember} className="p-6 space-y-5">
-            {/* 1. Personal Information */}
-            <div className="space-y-3.5">
-              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 text-primary">
-                <User className="w-3.5 h-3.5" />
-                Personal Information
-              </h4>
+          {/* Section: Membership */}
+          <div className="space-y-3 pt-4 border-t border-border">
+            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5" /> Membership & Dates
+            </h4>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold">Full Name *</Label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
-                    placeholder="e.g. Karan Mehra"
-                    className="mt-1 rounded-xl text-sm"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold">Phone Number *</Label>
-                  <Input
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    required
-                    placeholder="+91 98787 66554"
-                    className="mt-1 rounded-xl text-sm"
-                  />
-                </div>
-              </div>
+            <div>
+              <Label className="text-xs font-semibold">Membership Plan *</Label>
+              <Select
+                value={form.plan_id}
+                onValueChange={(val) => handlePlanOrDateChange(val, form.start_date)}
+              >
+                <SelectTrigger className="mt-1 rounded-xl h-11 text-xs">
+                  <SelectValue placeholder="Select plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} ({p.duration_days}d) — ₹{(p.price || 0).toLocaleString("en-IN")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <Label className="text-xs font-semibold">Email Address</Label>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="karan@example.com"
-                    className="mt-1 rounded-xl text-sm"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold">Gender</Label>
-                  <Select
-                    value={form.gender}
-                    onValueChange={(val) => setForm({ ...form, gender: val })}
-                  >
-                    <SelectTrigger className="mt-1 rounded-xl text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold">Date of Birth</Label>
-                  <Input
-                    type="date"
-                    value={form.date_of_birth}
-                    onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
-                    className="mt-1 rounded-xl text-sm"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold">Emergency Contact</Label>
-                  <Input
-                    value={form.emergency_contact}
-                    onChange={(e) => setForm({ ...form, emergency_contact: e.target.value })}
-                    placeholder="+91 98888 77665 (Father/Spouse)"
-                    className="mt-1 rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-
+            <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <Label className="text-xs font-semibold">Residential Address</Label>
+                <Label className="text-xs font-semibold">Start Date</Label>
                 <Input
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  placeholder="Apartment, Street address, City"
-                  className="mt-1 rounded-xl text-sm"
+                  type="date"
+                  value={form.start_date}
+                  onChange={(e) => handlePlanOrDateChange(form.plan_id, e.target.value)}
+                  className="mt-1 rounded-xl h-11 text-xs"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">End Date</Label>
+                <Input
+                  type="date"
+                  value={form.end_date}
+                  onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+                  className="mt-1 rounded-xl h-11 text-xs bg-muted/40 font-medium"
                 />
               </div>
             </div>
 
-            {/* 2. Membership Information */}
-            <div className="space-y-3.5 pt-4 border-t border-border">
-              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 text-primary">
-                <CreditCard className="w-3.5 h-3.5" />
-                Membership Details & Expiry
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold">Select Membership Plan *</Label>
-                  <Select
-                    value={form.plan_id}
-                    onValueChange={(val) => handlePlanOrDateChange(val, form.start_date)}
-                  >
-                    <SelectTrigger className="mt-1 rounded-xl text-sm">
-                      <SelectValue placeholder="Choose a plan" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {plans.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} ({p.duration_days}d) — ₹{(p.price || 0).toLocaleString("en-IN")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="text-xs font-semibold">Assigned Trainer</Label>
-                  <Select
-                    value={form.trainer_id}
-                    onValueChange={(val) => setForm({ ...form, trainer_id: val })}
-                  >
-                    <SelectTrigger className="mt-1 rounded-xl text-sm">
-                      <SelectValue placeholder="Assign a coach (Optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Trainer Assigned</SelectItem>
-                      {trainers.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.name} ({t.specialization})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold">Start Date</Label>
-                  <Input
-                    type="date"
-                    value={form.start_date}
-                    onChange={(e) => handlePlanOrDateChange(form.plan_id, e.target.value)}
-                    className="mt-1 rounded-xl text-sm"
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">End Date (Auto-calculated)</Label>
-                    <span className="text-[10px] text-primary font-medium">Auto-synced</span>
-                  </div>
-                  <Input
-                    type="date"
-                    value={form.end_date}
-                    onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                    className="mt-1 rounded-xl text-sm font-medium bg-muted/30"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-xs font-semibold">Membership Status</Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(val) => setForm({ ...form, status: val })}
-                  >
-                    <SelectTrigger className="mt-1 rounded-xl text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="expiring">Expiring</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold">Payment Status</Label>
-                  <Select
-                    value={form.payment_status}
-                    onValueChange={(val) => setForm({ ...form, payment_status: val })}
-                  >
-                    <SelectTrigger className="mt-1 rounded-xl text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="unpaid">Unpaid / Due</SelectItem>
-                      <SelectItem value="partial">Partial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+            <div>
+              <Label className="text-xs font-semibold">Assigned Trainer</Label>
+              <Select
+                value={form.trainer_id}
+                onValueChange={(val) => setForm({ ...form, trainer_id: val })}
+              >
+                <SelectTrigger className="mt-1 rounded-xl h-11 text-xs">
+                  <SelectValue placeholder="Select Coach" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Coach</SelectItem>
+                  {trainers.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} ({t.specialization})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* 3. Additional Information */}
-            <div className="space-y-3.5 pt-4 border-t border-border">
-              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 text-primary">
-                <Heart className="w-3.5 h-3.5" />
-                Fitness Goals & Medical Notes
-              </h4>
-
+            <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <Label className="text-xs font-semibold">Fitness Goals</Label>
-                <Input
-                  value={form.fitness_goals}
-                  onChange={(e) => setForm({ ...form, fitness_goals: e.target.value })}
-                  placeholder="e.g. Muscle hypertrophy, marathon preparation, weight loss"
-                  className="mt-1 rounded-xl text-sm"
-                />
+                <Label className="text-xs font-semibold">Membership Status</Label>
+                <Select
+                  value={form.status}
+                  onValueChange={(val) => setForm({ ...form, status: val })}
+                >
+                  <SelectTrigger className="mt-1 rounded-xl h-11 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="expiring">Expiring</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
-                <Label className="text-xs font-semibold">Medical / Injury Notes</Label>
-                <Input
-                  value={form.medical_notes}
-                  onChange={(e) => setForm({ ...form, medical_notes: e.target.value })}
-                  placeholder="e.g. Lower back stiffness, knee meniscus surgery, asthma"
-                  className="mt-1 rounded-xl text-sm"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold">Internal Admin Notes</Label>
-                <Textarea
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  placeholder="Any operational notes for staff..."
-                  rows={2}
-                  className="mt-1 rounded-xl text-sm"
-                />
+                <Label className="text-xs font-semibold">Payment Status</Label>
+                <Select
+                  value={form.payment_status}
+                  onValueChange={(val) => setForm({ ...form, payment_status: val })}
+                >
+                  <SelectTrigger className="mt-1 rounded-xl h-11 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="unpaid">Unpaid</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+          </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-4 border-t border-border">
-              <Button
+          {/* Section: Additional Notes */}
+          <div className="space-y-3 pt-4 border-t border-border">
+            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-primary flex items-center gap-1.5">
+              <Heart className="w-3.5 h-3.5" /> Goals & Medical Notes
+            </h4>
+
+            <div>
+              <Label className="text-xs font-semibold">Fitness Goals</Label>
+              <Input
+                value={form.fitness_goals}
+                onChange={(e) => setForm({ ...form, fitness_goals: e.target.value })}
+                placeholder="Muscle building, marathon training"
+                className="mt-1 rounded-xl h-11 text-xs"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Medical / Injury Notes</Label>
+              <Input
+                value={form.medical_notes}
+                onChange={(e) => setForm({ ...form, medical_notes: e.target.value })}
+                placeholder="Lower back stiffness, knee surgery"
+                className="mt-1 rounded-xl h-11 text-xs"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Staff Internal Notes</Label>
+              <Textarea
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="Internal notes..."
+                rows={2}
+                className="mt-1 rounded-xl text-xs"
+              />
+            </div>
+          </div>
+        </form>
+      </MobileFullFormPanel>
+
+      {/* Member Details Full Screen Mobile View */}
+      {selectedMember && viewPanelOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background sm:items-center sm:justify-center animate-in fade-in duration-200">
+          <div
+            className="hidden sm:block fixed inset-0 bg-black/60"
+            onClick={() => setViewPanelOpen(false)}
+          />
+
+          <div className="relative w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-xl bg-card sm:rounded-3xl shadow-2xl z-10 flex flex-col overflow-hidden">
+            {/* Header: ← Karan Mehra       ⋮ */}
+            <div className="sticky top-0 bg-card/95 backdrop-blur-md px-4 py-3 border-b border-border flex items-center justify-between z-20">
+              <button
                 type="button"
-                variant="outline"
-                onClick={() => setFormModalOpen(false)}
-                className="flex-1 rounded-xl h-11 border-border text-xs font-semibold"
+                onClick={() => setViewPanelOpen(false)}
+                className="w-10 h-10 -ml-1 rounded-xl hover:bg-muted flex items-center justify-center text-foreground touch-manipulation"
               >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={saving}
-                className="flex-1 rounded-xl h-11 bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90"
+                <ArrowLeft className="w-5 h-5" strokeWidth={2.5} />
+              </button>
+              <p className="font-bold text-sm sm:text-base text-foreground truncate">
+                {selectedMember.name}
+              </p>
+              <button
+                type="button"
+                onClick={() => setActionSheetMember(selectedMember)}
+                className="w-10 h-10 rounded-xl hover:bg-muted flex items-center justify-center text-foreground touch-manipulation"
               >
-                {saving
-                  ? isEditMode
-                    ? "Saving Changes..."
-                    : "Creating Member..."
-                  : isEditMode
-                  ? "Save Changes"
-                  : "Create Member"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Member Profile Full Detail Modal */}
-      {selectedMember && (
-        <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
-          <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto no-scrollbar p-0 rounded-3xl bg-white border border-border">
-            {/* Header Hero */}
-            <div className="bg-gradient-to-br from-foreground to-foreground/90 text-white p-6 rounded-t-3xl relative">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-primary text-white flex items-center justify-center font-bold text-2xl shadow-md border-2 border-white/20">
-                    {selectedMember.name?.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">{selectedMember.name}</h3>
-                    <p className="text-white/70 text-xs mt-0.5">
-                      {selectedMember.plan_name || "Basic Membership"}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span
-                        className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full capitalize ${
-                          selectedMember.status === "active"
-                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                            : selectedMember.status === "expiring"
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                            : "bg-red-500/20 text-red-300 border border-red-500/30"
-                        }`}
-                      >
-                        {selectedMember.status || "active"}
-                      </span>
-                      <span className="text-[11px] text-white/70">
-                        Payment: {selectedMember.payment_status || "paid"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditModal(selectedMember)}
-                    className="bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl text-xs h-8"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 mr-1" />
-                    Edit
-                  </Button>
-                </div>
-              </div>
+                <MoreVertical className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Profile Content Body */}
-            <div className="p-6 space-y-6">
-              {/* Membership Summary Banner */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-muted/40 rounded-2xl border border-border">
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Start Date</p>
-                  <p className="text-xs font-bold text-foreground mt-0.5">
-                    {selectedMember.start_date
-                      ? format(new Date(selectedMember.start_date), "dd MMM yyyy")
-                      : "—"}
-                  </p>
+            {/* Content Body: Avatar + Vertically stacked cards */}
+            <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 pb-20">
+              {/* Member Hero Badge */}
+              <div className="flex flex-col items-center text-center py-4 bg-muted/40 rounded-2xl border border-border">
+                <div className="w-18 h-18 rounded-full bg-primary text-white flex items-center justify-center font-bold text-2xl shadow-sm mb-2">
+                  {selectedMember.name?.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Expiry Date</p>
-                  <p className="text-xs font-bold text-foreground mt-0.5">
-                    {selectedMember.expiry_date
-                      ? format(new Date(selectedMember.expiry_date), "dd MMM yyyy")
-                      : "—"}
-                  </p>
+                <h3 className="font-bold text-lg text-foreground">{selectedMember.name}</h3>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      selectedMember.status === "active"
+                        ? "bg-emerald-500"
+                        : selectedMember.status === "expiring"
+                        ? "bg-amber-500"
+                        : "bg-red-500"
+                    }`}
+                  />
+                  <span className="text-xs font-semibold capitalize text-foreground">
+                    {selectedMember.status || "active"}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Days Remaining</p>
-                  <p className="text-xs font-bold text-primary mt-0.5">
-                    {selectedMember.expiry_date
-                      ? `${Math.max(0, differenceInDays(new Date(selectedMember.expiry_date), new Date()))} Days`
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-muted-foreground uppercase font-semibold">Assigned Trainer</p>
-                  <p className="text-xs font-bold text-foreground mt-0.5 truncate">
-                    {selectedMember.trainer_name || "None Assigned"}
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedMember.plan_name || "Monthly Basic"} •{" "}
+                  {selectedMember.expiry_date
+                    ? `Expires ${format(new Date(selectedMember.expiry_date), "dd MMM yyyy")}`
+                    : "No expiry"}
+                </p>
               </div>
 
-              {/* Personal Details */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground">
-                  Personal Details
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 rounded-xl border border-border bg-white flex items-center gap-2.5">
-                    <Phone className="w-4 h-4 text-primary shrink-0" />
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">Phone</p>
-                      <p className="font-semibold text-foreground">{selectedMember.phone}</p>
-                    </div>
+              {/* 1. Contact Card */}
+              <div className="rounded-2xl border border-border p-4 space-y-2.5 bg-card">
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground">
+                  Contact
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Phone:</span>
+                    <span className="font-semibold text-foreground">{selectedMember.phone}</span>
                   </div>
-                  <div className="p-3 rounded-xl border border-border bg-white flex items-center gap-2.5">
-                    <Mail className="w-4 h-4 text-primary shrink-0" />
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">Email</p>
-                      <p className="font-semibold text-foreground">{selectedMember.email || "No email"}</p>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Email:</span>
+                    <span className="font-semibold text-foreground">{selectedMember.email || "—"}</span>
                   </div>
-                  <div className="p-3 rounded-xl border border-border bg-white flex items-center gap-2.5">
-                    <User className="w-4 h-4 text-primary shrink-0" />
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">Gender & DOB</p>
-                      <p className="font-semibold text-foreground">
-                        {selectedMember.gender || "Not specified"}
-                        {selectedMember.date_of_birth ? ` • Born ${selectedMember.date_of_birth}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-xl border border-border bg-white flex items-center gap-2.5">
-                    <Phone className="w-4 h-4 text-amber-600 shrink-0" />
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">Emergency Contact</p>
-                      <p className="font-semibold text-foreground">
-                        {selectedMember.emergency_contact || "Not provided"}
-                      </p>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Address:</span>
+                    <span className="font-semibold text-foreground">{selectedMember.address || "—"}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Fitness & Medical */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground">
-                  Goals & Medical Record
-                </h4>
-                <div className="p-4 rounded-2xl border border-border bg-white space-y-2.5 text-xs">
-                  <div>
-                    <span className="font-bold text-foreground">Fitness Goals: </span>
-                    <span className="text-muted-foreground">
-                      {selectedMember.fitness_goals || "General health and wellness maintenance."}
+              {/* 2. Membership Card */}
+              <div className="rounded-2xl border border-border p-4 space-y-2.5 bg-card">
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground">
+                  Membership Details
+                </p>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Plan:</span>
+                    <span className="font-semibold text-foreground">{selectedMember.plan_name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Start Date:</span>
+                    <span className="font-semibold text-foreground">
+                      {selectedMember.start_date
+                        ? format(new Date(selectedMember.start_date), "dd MMM yyyy")
+                        : "—"}
                     </span>
                   </div>
-                  <div>
-                    <span className="font-bold text-foreground">Medical Notes: </span>
-                    <span className="text-muted-foreground">
-                      {selectedMember.medical_notes || "No pre-existing conditions recorded."}
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Expiry Date:</span>
+                    <span className="font-semibold text-foreground">
+                      {selectedMember.expiry_date
+                        ? format(new Date(selectedMember.expiry_date), "dd MMM yyyy")
+                        : "—"}
                     </span>
                   </div>
-                  {selectedMember.notes && (
-                    <div>
-                      <span className="font-bold text-foreground">Staff Notes: </span>
-                      <span className="text-muted-foreground">{selectedMember.notes}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Payment Status:</span>
+                    <span className="font-semibold text-primary capitalize">
+                      {selectedMember.payment_status || "paid"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Activity / Mock Attendance & History */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                  <span>Recent Activity & Check-ins</span>
-                  <span className="text-[11px] text-primary font-normal">Last 3 visits</span>
-                </h4>
-                <div className="divide-y divide-border border border-border rounded-2xl bg-white overflow-hidden text-xs">
-                  <div className="p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Gym Floor Check-in (Main Turnstile)</span>
-                    </div>
+              {/* 3. Trainer Card */}
+              <div className="rounded-2xl border border-border p-4 space-y-2 bg-card">
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground">
+                  Trainer
+                </p>
+                <p className="text-xs font-semibold text-foreground">
+                  {selectedMember.trainer_name || "No trainer assigned"}
+                </p>
+              </div>
+
+              {/* 4. Activity Card */}
+              <div className="rounded-2xl border border-border p-4 space-y-2.5 bg-card">
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground">
+                  Activity & Attendance
+                </p>
+                <div className="space-y-2 text-xs divide-y divide-border/60">
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="flex items-center gap-1.5 text-foreground">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Gym Turnstile Check-in
+                    </span>
                     <span className="text-muted-foreground">Today, 06:42 AM</span>
                   </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Gym Floor Check-in (Main Turnstile)</span>
-                    </div>
-                    <span className="text-muted-foreground">Yesterday, 06:35 AM</span>
+                  <div className="flex items-center justify-between pt-1.5">
+                    <span className="flex items-center gap-1.5 text-foreground">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      Gym Floor Check-in
+                    </span>
+                    <span className="text-muted-foreground">Yesterday, 06:30 AM</span>
                   </div>
-                  <div className="p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Personal Training Session</span>
-                    </div>
-                    <span className="text-muted-foreground">3 days ago, 07:00 AM</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex items-center justify-between pt-4 border-t border-border">
-                <Button
-                  variant="outline"
-                  onClick={() => promptDeleteMember(selectedMember)}
-                  className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold h-10"
-                >
-                  <Trash2 className="w-4 h-4 mr-1.5" />
-                  Delete Member
-                </Button>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={() => handleRenewMembership(selectedMember)}
-                    className="bg-primary text-white rounded-xl text-xs font-semibold h-10 gap-1.5 hover:bg-primary/90"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Renew Membership
-                  </Button>
                 </div>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+
+            {/* Bottom Actions */}
+            <div className="p-3 border-t border-border bg-card flex gap-2 safe-bottom">
+              <Button
+                variant="outline"
+                onClick={() => openEditForm(selectedMember)}
+                className="flex-1 rounded-xl h-11 text-xs font-bold border-border text-foreground hover:bg-muted"
+              >
+                Edit Member
+              </Button>
+              <Button
+                onClick={() => handleRenewMembership(selectedMember)}
+                className="flex-1 rounded-xl h-11 text-xs font-bold bg-primary text-white"
+              >
+                Renew Plan
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Alert Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent className="rounded-3xl bg-white border border-border max-w-md">
+        <AlertDialogContent className="rounded-3xl bg-card border border-border max-w-sm">
           <AlertDialogHeader>
-            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 flex items-center justify-center mb-1">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <AlertDialogTitle className="text-lg font-bold text-foreground">
+            <AlertDialogTitle className="text-base font-bold text-foreground">
               Delete Member?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed">
               Are you sure you want to permanently delete{" "}
               <strong className="text-foreground">{memberToDelete?.name}</strong>?
-              This action cannot be undone and will remove all their membership records and history.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4 gap-2">
+          <AlertDialogFooter className="mt-3 gap-2">
             <AlertDialogCancel
               disabled={deleting}
-              onClick={() => setDeleteConfirmOpen(false)}
-              className="rounded-xl h-10 border-border text-xs font-semibold"
+              className="rounded-xl h-11 border-border text-xs font-semibold"
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={handleConfirmDelete}
-              className="rounded-xl h-10 bg-red-600 text-white hover:bg-red-700 text-xs font-semibold shadow-xs"
+              className="rounded-xl h-11 bg-red-600 text-white text-xs font-bold"
             >
               {deleting ? "Deleting..." : "Delete Member"}
             </AlertDialogAction>

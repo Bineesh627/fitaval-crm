@@ -6,14 +6,14 @@ import { cn } from "@/lib/utils";
  */
 export default function StatCard({ title, value, icon: Icon, accent = "primary", subtitle = "" }) {
   const accents = {
-    primary: "bg-primary/10 text-primary",
-    dark: "bg-foreground/10 text-foreground",
-    amber: "bg-amber-100 text-amber-600",
-    red: "bg-red-100 text-red-600",
-    green: "bg-green-100 text-green-600",
+    primary: "bg-primary/10 text-primary dark:bg-primary/20 dark:text-emerald-400",
+    dark: "bg-muted text-foreground dark:bg-slate-800 dark:text-slate-200",
+    amber: "bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400",
+    red: "bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400",
+    green: "bg-green-100 text-green-600 dark:bg-emerald-950/60 dark:text-emerald-400",
   };
   return (
-    <div className="rounded-2xl bg-white border border-border p-4 shadow-sm">
+    <div className="rounded-2xl bg-card border border-border p-4 shadow-sm">
       <div className="flex items-start justify-between">
         <div className="min-w-0">
           <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>

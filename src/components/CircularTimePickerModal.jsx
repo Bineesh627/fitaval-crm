@@ -1,12 +1,11 @@
 import React, { useState } from "react";
 import { Clock } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
 /**
- * Circular Clock Time Picker
- * WhatsApp Business / Material Clock style
- * Allows selection of Hour, Minute, and AM/PM
+ * Mobile-First Circular Clock Time Picker
+ * WhatsApp Business / Material Mobile Clock Style
+ * Renders cleanly as a touch-friendly bottom sheet on mobile and modal dialog on desktop
  */
 export function CircularTimePickerModal({
   open,
@@ -15,7 +14,6 @@ export function CircularTimePickerModal({
   title = "Select Time",
   onSave,
 }) {
-  // Parse initialTime: "5:30 AM" or "05:30 PM"
   const parseTime = (str) => {
     try {
       const match = str.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
@@ -39,7 +37,6 @@ export function CircularTimePickerModal({
   const [selectedMinute, setSelectedMinute] = useState(parsed.minute);
   const [period, setPeriod] = useState(parsed.period);
 
-  // Sync when initialTime changes or modal opens
   React.useEffect(() => {
     if (open) {
       const p = parseTime(initialTime);
@@ -50,12 +47,14 @@ export function CircularTimePickerModal({
     }
   }, [open, initialTime]);
 
+  if (!open) return null;
+
   const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
   const minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
   const handleHourClick = (h) => {
     setSelectedHour(h);
-    // automatically transition to minute mode like WhatsApp
+    // WhatsApp auto-transition to minute selection
     setMode("minute");
   };
 
@@ -72,87 +71,100 @@ export function CircularTimePickerModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(val) => !val && onClose?.()}>
-      <DialogContent className="max-w-[340px] sm:max-w-[360px] p-5 rounded-3xl bg-white border border-border">
-        <DialogHeader className="text-center sm:text-center pb-1">
-          <div className="flex items-center justify-center gap-2 text-primary font-semibold text-xs tracking-wider uppercase mb-1">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center animate-in fade-in duration-200">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Bottom Sheet on Mobile / Modal on Desktop */}
+      <div className="relative w-full max-w-sm sm:max-w-md bg-card rounded-t-3xl sm:rounded-3xl shadow-2xl z-10 overflow-hidden flex flex-col max-h-[92vh] border border-border animate-in slide-in-from-bottom-5 duration-200">
+        {/* Mobile Pull Handle */}
+        <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full mx-auto mt-3 mb-1 sm:hidden" />
+
+        {/* Header */}
+        <div className="px-5 pt-3 pb-2 text-center border-b border-border/70">
+          <div className="flex items-center justify-center gap-1.5 text-primary text-xs font-bold uppercase tracking-wider">
             <Clock className="w-3.5 h-3.5" />
             <span>{title}</span>
           </div>
-          <DialogTitle className="text-base text-foreground font-bold">
-            Set Operating Time
-          </DialogTitle>
-        </DialogHeader>
+          <p className="text-sm font-bold text-foreground mt-0.5">Select Operating Time</p>
+        </div>
 
         {/* Digital display & AM/PM toggle */}
-        <div className="flex items-center justify-center gap-3 my-2 bg-muted/50 py-3 px-4 rounded-2xl border border-border/60">
-          <div className="flex items-baseline gap-1 font-mono text-3xl font-bold">
-            <button
-              type="button"
-              onClick={() => setMode("hour")}
-              className={`px-2.5 py-1 rounded-xl transition-all ${
-                mode === "hour"
-                  ? "bg-primary text-white shadow-sm ring-2 ring-primary/20 scale-105"
-                  : "bg-white text-foreground hover:bg-muted"
-              }`}
-            >
-              {selectedHour}
-            </button>
-            <span className="text-muted-foreground font-bold text-2xl">:</span>
-            <button
-              type="button"
-              onClick={() => setMode("minute")}
-              className={`px-2.5 py-1 rounded-xl transition-all ${
-                mode === "minute"
-                  ? "bg-primary text-white shadow-sm ring-2 ring-primary/20 scale-105"
-                  : "bg-white text-foreground hover:bg-muted"
-              }`}
-            >
-              {selectedMinute.toString().padStart(2, "0")}
-            </button>
+        <div className="px-5 pt-3 pb-2">
+          <div className="flex items-center justify-center gap-3 bg-muted/50 p-2.5 rounded-2xl border border-border">
+            <div className="flex items-baseline gap-1 font-mono text-3xl font-extrabold">
+              <button
+                type="button"
+                onClick={() => setMode("hour")}
+                className={`min-w-[50px] py-1 px-2 rounded-xl transition-all ${
+                  mode === "hour"
+                    ? "bg-primary text-white shadow-sm ring-2 ring-primary/30 scale-105"
+                    : "bg-card text-foreground hover:bg-muted"
+                }`}
+              >
+                {selectedHour}
+              </button>
+              <span className="text-muted-foreground font-bold text-2xl">:</span>
+              <button
+                type="button"
+                onClick={() => setMode("minute")}
+                className={`min-w-[50px] py-1 px-2 rounded-xl transition-all ${
+                  mode === "minute"
+                    ? "bg-primary text-white shadow-sm ring-2 ring-primary/30 scale-105"
+                    : "bg-card text-foreground hover:bg-muted"
+                }`}
+              >
+                {selectedMinute.toString().padStart(2, "0")}
+              </button>
+            </div>
+
+            {/* AM / PM switcher (min 44px touch) */}
+            <div className="flex flex-col gap-1 border-l border-border/80 pl-3">
+              <button
+                type="button"
+                onClick={() => setPeriod("AM")}
+                className={`min-h-[32px] px-3 rounded-lg text-xs font-bold uppercase transition-colors ${
+                  period === "AM"
+                    ? "bg-primary text-white shadow-xs"
+                    : "bg-card text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                AM
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriod("PM")}
+                className={`min-h-[32px] px-3 rounded-lg text-xs font-bold uppercase transition-colors ${
+                  period === "PM"
+                    ? "bg-primary text-white shadow-xs"
+                    : "bg-card text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                PM
+              </button>
+            </div>
           </div>
 
-          {/* AM / PM switcher */}
-          <div className="flex flex-col gap-1 border-l border-border/80 pl-3">
+          {/* Mode switch helper */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground mt-2 px-1">
+            <span className="font-medium">
+              Picking: <strong className="text-foreground capitalize">{mode}s</strong>
+            </span>
             <button
               type="button"
-              onClick={() => setPeriod("AM")}
-              className={`px-2 py-0.5 rounded text-xs font-bold uppercase transition-colors ${
-                period === "AM"
-                  ? "bg-primary text-white"
-                  : "bg-transparent text-muted-foreground hover:bg-muted"
-              }`}
+              onClick={() => setMode(mode === "hour" ? "minute" : "hour")}
+              className="text-primary font-bold hover:underline"
             >
-              AM
-            </button>
-            <button
-              type="button"
-              onClick={() => setPeriod("PM")}
-              className={`px-2 py-0.5 rounded text-xs font-bold uppercase transition-colors ${
-                period === "PM"
-                  ? "bg-primary text-white"
-                  : "bg-transparent text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              PM
+              Switch to {mode === "hour" ? "minutes" : "hours"}
             </button>
           </div>
         </div>
 
-        {/* Mode subtitle */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground px-2">
-          <span>{mode === "hour" ? "Pick hour" : "Pick minutes"}</span>
-          <button
-            type="button"
-            onClick={() => setMode(mode === "hour" ? "minute" : "hour")}
-            className="text-primary font-semibold hover:underline"
-          >
-            Switch to {mode === "hour" ? "minutes" : "hours"}
-          </button>
-        </div>
-
-        {/* Circular Clock Dial */}
-        <div className="relative w-64 h-64 mx-auto my-2 rounded-full bg-muted/40 border border-border flex items-center justify-center select-none shadow-inner">
+        {/* Circular Clock Dial (Touch-sized 240px) */}
+        <div className="relative w-60 h-60 mx-auto my-2 rounded-full bg-muted/40 border border-border flex items-center justify-center select-none shadow-inner shrink-0">
           {/* Center Pivot */}
           <div className="absolute w-3 h-3 rounded-full bg-primary z-20 shadow-sm" />
 
@@ -166,21 +178,21 @@ export function CircularTimePickerModal({
               <div
                 className="absolute w-0.5 bg-primary origin-bottom pointer-events-none transition-transform duration-200 z-10"
                 style={{
-                  height: "88px",
+                  height: "82px",
                   bottom: "50%",
                   transform: `rotate(${angle}deg)`,
                 }}
               >
-                {/* Hand End Circle */}
-                <div className="absolute -top-3.5 -left-3.5 w-7 h-7 rounded-full bg-primary/20 border-2 border-primary" />
+                {/* Hand target circle */}
+                <div className="absolute -top-4 -left-4 w-8 h-8 rounded-full bg-primary/25 border-2 border-primary" />
               </div>
             );
           })()}
 
-          {/* Hour or Minute numbers arranged in circle (radius ~ 92px) */}
+          {/* Numbers arranged around circular dial */}
           {(mode === "hour" ? hours : minutes).map((val, index) => {
             const angle = (index * 30 - 90) * (Math.PI / 180);
-            const radius = 92;
+            const radius = 86;
             const x = Math.round(Math.cos(angle) * radius);
             const y = Math.round(Math.sin(angle) * radius);
 
@@ -197,9 +209,9 @@ export function CircularTimePickerModal({
                 style={{
                   transform: `translate(${x}px, ${y}px)`,
                 }}
-                className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all z-10 ${
+                className={`absolute w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all z-10 touch-manipulation ${
                   isSelected
-                    ? "bg-primary text-white font-bold shadow-md scale-110"
+                    ? "bg-primary text-white font-extrabold shadow-md scale-110"
                     : "text-foreground hover:bg-primary/10 hover:text-primary"
                 }`}
               >
@@ -209,8 +221,8 @@ export function CircularTimePickerModal({
           })}
         </div>
 
-        {/* Quick presets for common gym times */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+        {/* Quick presets chips */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 px-4 pb-2">
           {["05:30 AM", "06:00 AM", "08:00 PM", "10:00 PM", "10:30 PM"].map((t) => (
             <button
               key={t}
@@ -221,32 +233,33 @@ export function CircularTimePickerModal({
                 setSelectedMinute(p.minute);
                 setPeriod(p.period);
               }}
-              className="px-2 py-0.5 rounded-md text-[11px] bg-secondary hover:bg-primary/10 hover:text-primary text-muted-foreground font-medium transition-colors"
+              className="px-2.5 py-1 rounded-lg text-xs bg-secondary hover:bg-primary/10 hover:text-primary text-foreground font-medium transition-colors border border-border/60"
             >
               {t}
             </button>
           ))}
         </div>
 
-        <DialogFooter className="flex items-center gap-2 pt-3 sm:justify-between border-t border-border mt-2">
+        {/* Sticky Actions in safe area */}
+        <div className="px-5 py-3 border-t border-border bg-card flex items-center gap-2 safe-bottom">
           <Button
             type="button"
             variant="outline"
             onClick={onClose}
-            className="flex-1 rounded-xl h-10 border-border text-xs font-semibold"
+            className="flex-1 rounded-xl h-11 border-border text-xs font-semibold"
           >
             Cancel
           </Button>
           <Button
             type="button"
             onClick={handleConfirm}
-            className="flex-1 rounded-xl h-10 bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90"
+            className="flex-1 rounded-xl h-11 bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90"
           >
-            Confirm Time
+            Save Time
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }
 

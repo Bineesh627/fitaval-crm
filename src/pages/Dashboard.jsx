@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { client } from "@/api/client";
 import { Users, UserCheck, Clock, UserX, TrendingUp, TrendingDown, Wallet, Plus, ArrowRight, Calendar } from "lucide-react";
 import StatCard from "@/components/StatCard";
-import { EmptyState, PageHeader } from "@/components/ui-shared";
+import { EmptyState, PageHeader, Badge } from "@/components/ui-shared";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { format, subDays, isAfter, isBefore, addDays } from "date-fns";
 
@@ -77,22 +77,22 @@ export default function Dashboard() {
   return (
     <div>
       {/* Greeting */}
-      <div className="rounded-3xl bg-gradient-to-br from-foreground to-foreground/80 text-white p-5 mb-5 relative overflow-hidden">
-        <div className="absolute -right-6 -top-6 w-32 h-32 bg-primary/20 rounded-full blur-2xl" />
-        <div className="absolute right-10 bottom-0 w-24 h-24 bg-primary/30 rounded-full blur-2xl" />
+      <div className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white p-5 mb-5 relative overflow-hidden border border-slate-800/80 shadow-md">
+        <div className="absolute -right-6 -top-6 w-32 h-32 bg-primary/25 rounded-full blur-2xl" />
+        <div className="absolute right-10 bottom-0 w-24 h-24 bg-primary/35 rounded-full blur-2xl" />
         <div className="relative">
-          <p className="text-white/60 text-sm">{format(new Date(), "EEEE, dd MMM")}</p>
-          <h2 className="text-2xl font-bold mt-1">Welcome back 👋</h2>
-          <p className="text-white/70 text-sm mt-1">Here's your gym overview for this month</p>
+          <p className="text-white/60 text-xs sm:text-sm">{format(new Date(), "EEEE, dd MMM")}</p>
+          <h2 className="text-2xl font-bold mt-1 text-white">Welcome back 👋</h2>
+          <p className="text-white/70 text-xs sm:text-sm mt-1">Here's your gym overview for this month</p>
           <div className="flex items-center gap-4 mt-4">
             <div>
               <p className="text-white/60 text-xs">Monthly Income</p>
-              <p className="text-xl font-bold">₹{stats.income.toLocaleString("en-IN")}</p>
+              <p className="text-xl font-bold text-white">₹{stats.income.toLocaleString("en-IN")}</p>
             </div>
             <div className="w-px h-10 bg-white/20" />
             <div>
               <p className="text-white/60 text-xs">Net Profit</p>
-              <p className="text-xl font-bold text-green-300">₹{stats.net.toLocaleString("en-IN")}</p>
+              <p className="text-xl font-bold text-emerald-400">₹{stats.net.toLocaleString("en-IN")}</p>
             </div>
           </div>
         </div>
@@ -109,15 +109,15 @@ export default function Dashboard() {
       </div>
 
       {/* Chart */}
-      <div className="rounded-2xl bg-white border border-border p-5 mb-5">
+      <div className="rounded-2xl bg-card border border-border p-5 mb-5 shadow-xs">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-bold text-foreground">Cash Flow</h3>
             <p className="text-xs text-muted-foreground">Last 7 days</p>
           </div>
           <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary" />Income</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-foreground/40" />Expense</span>
+            <span className="flex items-center gap-1.5 font-medium"><span className="w-2.5 h-2.5 rounded-full bg-primary" />Income</span>
+            <span className="flex items-center gap-1.5 font-medium"><span className="w-2.5 h-2.5 rounded-full bg-red-500" />Expense</span>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={180}>
@@ -128,40 +128,46 @@ export default function Dashboard() {
                 <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(var(--foreground))" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="hsl(var(--foreground))" stopOpacity={0} />
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis dataKey="day" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12 }}
+              contentStyle={{
+                backgroundColor: "hsl(var(--card))",
+                borderColor: "hsl(var(--border))",
+                borderRadius: 12,
+                fontSize: 12,
+                color: "hsl(var(--card-foreground))",
+              }}
               formatter={(v) => `₹${v.toLocaleString("en-IN")}`}
             />
             <Area type="monotone" dataKey="income" stroke="hsl(var(--primary))" strokeWidth={2.5} fill="url(#gInc)" />
-            <Area type="monotone" dataKey="expense" stroke="hsl(var(--foreground))" strokeWidth={2} fill="url(#gExp)" />
+            <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} fill="url(#gExp)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
       {/* Financial summary */}
       <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="rounded-2xl bg-white border border-border p-4">
-          <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center mb-2">
-            <TrendingUp className="w-4 h-4 text-green-600" />
+        <div className="rounded-2xl bg-card border border-border p-4 shadow-xs">
+          <div className="w-9 h-9 rounded-xl bg-green-100 dark:bg-emerald-950/40 text-green-600 dark:text-emerald-400 flex items-center justify-center mb-2">
+            <TrendingUp className="w-4 h-4" />
           </div>
           <p className="text-xs text-muted-foreground">Income (Mo)</p>
           <p className="font-bold text-foreground">₹{stats.income.toLocaleString("en-IN")}</p>
         </div>
-        <div className="rounded-2xl bg-white border border-border p-4">
-          <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center mb-2">
-            <TrendingDown className="w-4 h-4 text-red-600" />
+        <div className="rounded-2xl bg-card border border-border p-4 shadow-xs">
+          <div className="w-9 h-9 rounded-xl bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mb-2">
+            <TrendingDown className="w-4 h-4" />
           </div>
           <p className="text-xs text-muted-foreground">Expense (Mo)</p>
           <p className="font-bold text-foreground">₹{stats.expense.toLocaleString("en-IN")}</p>
         </div>
-        <div className="rounded-2xl bg-white border border-border p-4">
+        <div className="rounded-2xl bg-card border border-border p-4 shadow-xs">
           <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
             <Wallet className="w-4 h-4 text-primary" />
           </div>
@@ -181,19 +187,19 @@ export default function Dashboard() {
             <p className="text-xs text-primary-foreground/70">New or existing</p>
           </div>
         </Link>
-        <Link to="/finance" className="rounded-2xl bg-white border border-border p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+        <Link to="/finance" className="rounded-2xl bg-card border border-border p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
           <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center">
             <Wallet className="w-5 h-5 text-accent-foreground" />
           </div>
           <div>
-            <p className="font-semibold text-sm">Add Transaction</p>
+            <p className="font-semibold text-sm text-foreground">Add Transaction</p>
             <p className="text-xs text-muted-foreground">Income or expense</p>
           </div>
         </Link>
       </div>
 
       {/* Recent members */}
-      <div className="rounded-2xl bg-white border border-border p-5">
+      <div className="rounded-2xl bg-card border border-border p-5 shadow-xs">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-bold text-foreground">Recent Members</h3>
           <Link to="/members" className="text-xs font-semibold text-primary flex items-center gap-1">
@@ -213,13 +219,9 @@ export default function Dashboard() {
                   <p className="font-medium text-foreground text-sm truncate">{m.name}</p>
                   <p className="text-xs text-muted-foreground truncate">{m.plan_name || "No plan"}</p>
                 </div>
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                  m.status === "active" ? "bg-green-100 text-green-700" :
-                  m.status === "expiring" ? "bg-amber-100 text-amber-700" :
-                  "bg-red-100 text-red-700"
-                }`}>
+                <Badge variant={m.status === "active" ? "green" : m.status === "expiring" ? "amber" : "red"}>
                   {m.status || "active"}
-                </span>
+                </Badge>
               </div>
             ))}
           </div>

@@ -1,20 +1,22 @@
 import React, { useState } from "react";
-import { MapPin, Navigation, Search, Check, ExternalLink } from "lucide-react";
+import {
+  MapPin,
+  Navigation,
+  Search,
+  Check,
+  ExternalLink,
+  ChevronRight,
+  Compass,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui-shared";
 
-/**
- * Common locations for fast search suggestions
- */
 const PRESET_LOCATIONS = [
   { name: "Sector 18, Commercial Plaza, Gurugram", lat: 28.4815, lng: 77.0818, city: "Gurugram, Haryana" },
   { name: "Indiranagar 100ft Road, Bengaluru", lat: 12.9719, lng: 77.6412, city: "Bengaluru, Karnataka" },
   { name: "Bandra West, Hill Road, Mumbai", lat: 19.0596, lng: 72.8295, city: "Mumbai, Maharashtra" },
   { name: "Connaught Place, Central Circle, New Delhi", lat: 28.6315, lng: 77.2167, city: "New Delhi" },
-  { name: "Koramangala 4th Block, Bengaluru", lat: 12.9352, lng: 77.6245, city: "Bengaluru, Karnataka" },
-  { name: "Jubilee Hills Check Post, Hyderabad", lat: 17.4325, lng: 78.4071, city: "Hyderabad, Telangana" },
 ];
 
 export function GymLocationPicker({
@@ -38,10 +40,10 @@ export function GymLocationPicker({
     if (!searchQuery.trim()) return;
     setSearching(true);
 
-    // Check against preset locations or simulate geocode
-    const found = PRESET_LOCATIONS.find((loc) =>
-      loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      loc.city.toLowerCase().includes(searchQuery.toLowerCase())
+    const found = PRESET_LOCATIONS.find(
+      (loc) =>
+        loc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        loc.city.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     setTimeout(() => {
@@ -51,15 +53,14 @@ export function GymLocationPicker({
         setCurrentAddress(found.name);
         setCurrentCity(found.city);
       } else {
-        // pseudo geocode near entered query
-        const pseudoLat = 28.45 + (Math.random() * 0.1);
-        const pseudoLng = 77.05 + (Math.random() * 0.1);
+        const pseudoLat = 28.45 + Math.random() * 0.1;
+        const pseudoLng = 77.05 + Math.random() * 0.1;
         setLat(Number(pseudoLat.toFixed(5)));
         setLng(Number(pseudoLng.toFixed(5)));
         setCurrentAddress(searchQuery);
       }
       setSearching(false);
-    }, 400);
+    }, 350);
   };
 
   const handleUseCurrentLocation = () => {
@@ -77,7 +78,6 @@ export function GymLocationPicker({
         setGeoLoading(false);
       },
       () => {
-        // Fallback demo location if permissions denied
         setGeoLoading(false);
         setLat(28.4815);
         setLng(77.0818);
@@ -94,53 +94,55 @@ export function GymLocationPicker({
       latitude: Number(lat),
       longitude: Number(lng),
     });
-    setTimeout(() => setConfirmed(false), 2500);
+    setTimeout(() => setConfirmed(false), 2000);
   };
 
-  // Google Maps directions / view link
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
+  const osmEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${(Number(lng) - 0.008).toFixed(4)}%2C${(Number(lat) - 0.005).toFixed(4)}%2C${(Number(lng) + 0.008).toFixed(4)}%2C${(Number(lat) + 0.005).toFixed(4)}&layer=mapnik&marker=${lat}%2C${lng}`;
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
+      {/* Search Bar - Full Width on Mobile */}
       <div>
         <Label className="text-xs font-semibold text-foreground">Search Location</Label>
-        <form onSubmit={handleSearch} className="flex gap-2 mt-1.5">
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2 mt-1.5">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search area, landmark, commercial plaza..."
-              className="pl-9 text-sm rounded-xl"
+              className="pl-9 text-xs sm:text-sm rounded-xl h-11"
             />
           </div>
-          <Button
-            type="submit"
-            disabled={searching}
-            variant="outline"
-            className="rounded-xl border-border px-4 text-xs font-medium"
-          >
-            {searching ? "Searching..." : "Search"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleUseCurrentLocation}
-            disabled={geoLoading}
-            className="rounded-xl border-border px-3 text-xs font-medium gap-1 text-primary hover:bg-primary/10"
-            title="Use device GPS"
-          >
-            <Navigation className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Use Current Location</span>
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              disabled={searching}
+              variant="outline"
+              className="flex-1 sm:flex-none rounded-xl border-border px-4 text-xs font-semibold h-11"
+            >
+              {searching ? "Searching..." : "Search"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleUseCurrentLocation}
+              disabled={geoLoading}
+              className="flex-1 sm:flex-none rounded-xl border-border px-3 text-xs font-semibold gap-1 text-primary hover:bg-primary/10 h-11"
+              title="Use device GPS"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span>Current GPS</span>
+            </Button>
+          </div>
         </form>
       </div>
 
       {/* Suggested Quick Locations */}
       <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-        <span className="text-[11px] text-muted-foreground shrink-0 font-medium">Suggestions:</span>
-        {PRESET_LOCATIONS.slice(0, 3).map((loc) => (
+        <span className="text-[11px] text-muted-foreground shrink-0 font-medium">Presets:</span>
+        {PRESET_LOCATIONS.map((loc) => (
           <button
             key={loc.name}
             type="button"
@@ -150,134 +152,116 @@ export function GymLocationPicker({
               setCurrentAddress(loc.name);
               setCurrentCity(loc.city);
             }}
-            className="text-[11px] bg-secondary hover:bg-primary/10 hover:text-primary px-2.5 py-1 rounded-full whitespace-nowrap transition-colors border border-border/60"
+            className="text-[11px] bg-secondary hover:bg-primary/10 hover:text-primary px-3 py-1.5 rounded-full whitespace-nowrap transition-colors border border-border/60 shrink-0 font-medium"
           >
             {loc.name.split(",")[0]}
           </button>
         ))}
       </div>
 
-      {/* Interactive Map Preview with Pin Marker */}
-      <div className="relative w-full h-56 rounded-2xl overflow-hidden border border-border shadow-inner bg-slate-100">
-        {/* Styled Map Canvas / Tile Simulation */}
-        <div
-          className="absolute inset-0 bg-cover bg-center transition-all duration-300"
-          style={{
-            backgroundImage: `radial-gradient(#94a3b8 1px, transparent 1px), radial-gradient(#cbd5e1 1px, #f8fafc 1px)`,
-            backgroundSize: "24px 24px",
-            backgroundPosition: "0 0, 12px 12px",
-          }}
-        >
-          {/* Simulated Street Grid Lines */}
-          <div className="absolute inset-0 opacity-40">
-            <div className="absolute top-1/4 left-0 right-0 h-4 bg-slate-300 transform -rotate-3" />
-            <div className="absolute top-2/3 left-0 right-0 h-6 bg-slate-300/80 transform rotate-1" />
-            <div className="absolute top-0 bottom-0 left-1/3 w-5 bg-slate-300/80" />
-            <div className="absolute top-0 bottom-0 left-2/3 w-4 bg-slate-300/90 transform -rotate-1" />
-            <div className="absolute top-1/3 right-1/4 w-28 h-20 bg-green-100/80 rounded-xl border border-green-200 flex items-center justify-center text-[10px] text-green-700 font-bold">
-              Gym Zone
-            </div>
-          </div>
+      {/* Interactive OpenStreetMap Preview with Pin Marker */}
+      <div className="relative w-full h-60 rounded-2xl overflow-hidden border border-border shadow-inner bg-slate-100 touch-manipulation">
+        <iframe
+          key={`${lat}-${lng}`}
+          title="OpenStreetMap Picker"
+          width="100%"
+          height="100%"
+          frameBorder="0"
+          scrolling="no"
+          marginHeight="0"
+          marginWidth="0"
+          src={osmEmbedUrl}
+          className="w-full h-full border-0 rounded-2xl"
+        />
+
+        {/* Top Badges: OpenStreetMap label and Open external link */}
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-card/95 backdrop-blur-md px-2.5 py-1 rounded-lg border border-border text-[10px] text-foreground font-semibold shadow-xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>OpenStreetMap</span>
         </div>
 
-        {/* Center Pin Marker */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-10">
-          <div className="flex flex-col items-center animate-bounce">
-            <div className="bg-primary text-white p-2 rounded-full shadow-lg border-2 border-white">
-              <MapPin className="w-5 h-5" />
-            </div>
-            <div className="w-2.5 h-1 bg-black/30 rounded-full blur-[1px] mt-0.5" />
-          </div>
-          <div className="mt-1 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg shadow-sm border border-border text-[11px] font-semibold text-foreground max-w-[200px] truncate text-center">
-            {currentAddress}
-          </div>
-        </div>
-
-        {/* Coordinates badge overlay */}
-        <div className="absolute bottom-2.5 left-2.5 z-20 flex items-center gap-1.5 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-border text-[11px] text-foreground font-mono">
-          <span className="text-primary font-bold">●</span>
-          <span>Lat: {lat}</span>
-          <span className="text-muted-foreground">|</span>
-          <span>Lng: {lng}</span>
-        </div>
-
-        {/* Google Maps link overlay */}
         <a
-          href={googleMapsUrl}
+          href={osmUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 bg-white/90 hover:bg-white backdrop-blur-md px-2.5 py-1 rounded-lg border border-border text-[11px] font-medium text-primary shadow-sm transition-all"
+          className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-card/95 hover:bg-card text-[11px] font-semibold text-primary px-2.5 py-1 rounded-lg border border-border shadow-xs transition-colors"
         >
-          <span>Open Maps</span>
+          <span>Open in OSM</span>
           <ExternalLink className="w-3 h-3" />
         </a>
+
+        {/* Bottom Coordinates badge */}
+        <div className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 bg-card/95 backdrop-blur-md px-2.5 py-1 rounded-lg border border-border text-[10px] text-foreground font-mono shadow-xs">
+          <span className="text-primary font-bold">●</span>
+          <span>Lat: {lat}</span>
+          <span>|</span>
+          <span>Lng: {lng}</span>
+        </div>
       </div>
 
       {/* Editable Address Details */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+      <div className="space-y-3">
         <div>
-          <Label className="text-xs text-muted-foreground">Detailed Address</Label>
+          <Label className="text-xs text-muted-foreground font-medium">Selected Address</Label>
           <Input
             value={currentAddress}
             onChange={(e) => setCurrentAddress(e.target.value)}
             placeholder="Commercial Plaza, Floor 3"
-            className="mt-1 text-sm rounded-xl"
+            className="mt-1 text-xs sm:text-sm rounded-xl h-11"
           />
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground">City & State</Label>
+          <Label className="text-xs text-muted-foreground font-medium">City & State</Label>
           <Input
             value={currentCity}
             onChange={(e) => setCurrentCity(e.target.value)}
             placeholder="Gurugram, Haryana"
-            className="mt-1 text-sm rounded-xl"
+            className="mt-1 text-xs sm:text-sm rounded-xl h-11"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label className="text-xs text-muted-foreground">Latitude</Label>
+          <Label className="text-xs text-muted-foreground font-medium">Latitude</Label>
           <Input
             type="number"
             step="0.00001"
             value={lat}
             onChange={(e) => setLat(parseFloat(e.target.value) || 0)}
-            className="mt-1 text-xs font-mono rounded-xl"
+            className="mt-1 text-xs font-mono rounded-xl h-10"
           />
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground">Longitude</Label>
+          <Label className="text-xs text-muted-foreground font-medium">Longitude</Label>
           <Input
             type="number"
             step="0.00001"
             value={lng}
             onChange={(e) => setLng(parseFloat(e.target.value) || 0)}
-            className="mt-1 text-xs font-mono rounded-xl"
+            className="mt-1 text-xs font-mono rounded-xl h-10"
           />
         </div>
       </div>
 
       {/* Confirm Button */}
-      <div className="pt-1">
-        <Button
-          type="button"
-          onClick={handleConfirmLocation}
-          className={`w-full rounded-xl h-11 text-sm font-semibold transition-all ${
-            confirmed
-              ? "bg-green-600 text-white"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
-          }`}
-        >
-          {confirmed ? (
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4" /> Location Confirmed & Linked
-            </span>
-          ) : (
-            "Confirm Location"
-          )}
-        </Button>
-      </div>
+      <Button
+        type="button"
+        onClick={handleConfirmLocation}
+        className={`w-full rounded-xl h-12 text-sm font-bold transition-all ${
+          confirmed
+            ? "bg-green-600 text-white"
+            : "bg-primary text-primary-foreground hover:bg-primary/90"
+        }`}
+      >
+        {confirmed ? (
+          <span className="flex items-center gap-1.5">
+            <Check className="w-4 h-4" /> Location Confirmed & Linked
+          </span>
+        ) : (
+          "Confirm Location"
+        )}
+      </Button>
     </div>
   );
 }

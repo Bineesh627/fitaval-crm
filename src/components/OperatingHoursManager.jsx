@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Clock, Copy, Check } from "lucide-react";
+import { Clock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import CircularTimePickerModal from "./CircularTimePickerModal";
@@ -24,15 +24,19 @@ export const DEFAULT_WEEK_SCHEDULE = {
   sunday: { enabled: false, open: "7:00 AM", close: "8:00 PM" },
 };
 
-/**
- * Parses a schedule object into a readable single-line summary string
- */
 export function formatWeeklyScheduleSummary(schedule) {
   if (!schedule) return "Monday – Saturday: 5:30 AM – 10:30 PM | Sunday: Closed";
   const weekdaysOpen = ["monday", "tuesday", "wednesday", "thursday", "friday"].every(
-    (k) => schedule[k]?.enabled && schedule[k]?.open === schedule.monday?.open && schedule[k]?.close === schedule.monday?.close
+    (k) =>
+      schedule[k]?.enabled &&
+      schedule[k]?.open === schedule.monday?.open &&
+      schedule[k]?.close === schedule.monday?.close
   );
-  if (weekdaysOpen && schedule.saturday?.enabled && schedule.saturday?.open === schedule.monday?.open) {
+  if (
+    weekdaysOpen &&
+    schedule.saturday?.enabled &&
+    schedule.saturday?.open === schedule.monday?.open
+  ) {
     const sun = schedule.sunday?.enabled
       ? `Sunday: ${schedule.sunday.open} – ${schedule.sunday.close}`
       : "Sunday: Closed";
@@ -42,8 +46,8 @@ export function formatWeeklyScheduleSummary(schedule) {
 }
 
 /**
- * Operating Hours Manager component
- * Supports WhatsApp Business style toggles and circular clock pickers
+ * Mobile-First Operating Hours Manager
+ * Touch-friendly rows with WhatsApp business toggles
  */
 export function OperatingHoursManager({ value, onChange }) {
   const schedule = value || DEFAULT_WEEK_SCHEDULE;
@@ -54,7 +58,6 @@ export function OperatingHoursManager({ value, onChange }) {
     currentTime: "5:30 AM",
     title: "",
   });
-  const [copiedNotification, setCopiedNotification] = useState(false);
 
   const handleToggle = (dayKey) => {
     const updated = {
@@ -90,129 +93,94 @@ export function OperatingHoursManager({ value, onChange }) {
     onChange?.(updated);
   };
 
-  const applyToAllWeekdays = () => {
-    const mondayConfig = schedule.monday || { enabled: true, open: "5:30 AM", close: "10:30 PM" };
-    const updated = { ...schedule };
-    ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"].forEach((d) => {
-      updated[d] = { ...mondayConfig };
-    });
-    onChange?.(updated);
-    setCopiedNotification(true);
-    setTimeout(() => setCopiedNotification(false), 2000);
-  };
-
   return (
-    <div className="space-y-4">
-      {/* Header action: apply to all weekdays */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-accent/40 rounded-2xl border border-primary/20">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-primary" />
-          <span className="text-xs font-semibold text-foreground">
-            WhatsApp Business-style Schedule
-          </span>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={applyToAllWeekdays}
-          className="rounded-xl h-8 px-3 text-xs border-primary/30 text-primary hover:bg-primary/10 gap-1.5 font-medium"
-        >
-          {copiedNotification ? (
-            <>
-              <Check className="w-3.5 h-3.5 text-primary" />
-              Applied to Weekdays!
-            </>
-          ) : (
-            <>
-              <Copy className="w-3.5 h-3.5" />
-              Apply Monday to Mon–Sat
-            </>
-          )}
-        </Button>
-      </div>
-
+    <div className="space-y-3">
       {/* Weekday list */}
-      <div className="divide-y divide-border rounded-2xl border border-border bg-white overflow-hidden">
+      <div className="divide-y divide-border rounded-2xl border border-border bg-card overflow-hidden shadow-xs">
         {DAYS_OF_WEEK.map(({ key, label }) => {
-          const day = schedule[key] || { enabled: false, open: "6:00 AM", close: "10:00 PM" };
+          const day = schedule[key] || {
+            enabled: false,
+            open: "6:00 AM",
+            close: "10:00 PM",
+          };
           const isOpen = day.enabled;
 
           return (
             <div
               key={key}
-              className={`p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                isOpen ? "bg-white" : "bg-muted/30"
+              className={`p-3.5 sm:p-4 flex flex-col gap-2.5 transition-colors ${
+                isOpen ? "bg-card" : "bg-muted/20"
               }`}
             >
-              {/* Day title & status */}
-              <div className="flex items-center justify-between sm:justify-start gap-3 min-w-[140px]">
+              {/* Day title and toggle switch */}
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <span
                     className={`w-2.5 h-2.5 rounded-full ${
-                      isOpen ? "bg-primary animate-pulse" : "bg-muted-foreground/40"
+                      isOpen ? "bg-primary animate-pulse" : "bg-muted-foreground/30"
                     }`}
                   />
-                  <span className="font-semibold text-sm text-foreground">{label}</span>
+                  <span className="font-bold text-sm text-foreground">{label}</span>
                 </div>
-                <div className="flex items-center gap-2 sm:hidden">
-                  <span className="text-xs font-medium text-muted-foreground">
+
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`text-xs font-semibold ${
+                      isOpen ? "text-primary" : "text-muted-foreground"
+                    }`}
+                  >
                     {isOpen ? "Open" : "Closed"}
                   </span>
-                  <Switch checked={isOpen} onCheckedChange={() => handleToggle(key)} />
+                  <Switch
+                    checked={isOpen}
+                    onCheckedChange={() => handleToggle(key)}
+                    className="touch-manipulation"
+                  />
                 </div>
               </div>
 
-              {/* Time selection or Closed badge */}
-              <div className="flex items-center justify-between sm:justify-end gap-3 flex-1">
-                {isOpen ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-muted-foreground font-medium">Open:</span>
-                      <button
-                        type="button"
-                        onClick={() => openPicker(key, "open", label)}
-                        className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-primary/10 hover:text-primary hover:border-primary/40 border border-border text-xs font-semibold text-foreground transition-all flex items-center gap-1"
-                      >
-                        <Clock className="w-3 h-3 text-muted-foreground" />
-                        {day.open || "5:30 AM"}
-                      </button>
-                    </div>
+              {/* Timing buttons or Closed state */}
+              {isOpen ? (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => openPicker(key, "open", label)}
+                    className="flex flex-col items-start p-2.5 rounded-xl bg-secondary/80 hover:bg-primary/10 hover:border-primary/40 border border-border transition-colors text-left min-h-[48px]"
+                  >
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                      Opening Time
+                    </span>
+                    <span className="text-xs font-bold text-foreground mt-0.5 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-primary" />
+                      {day.open || "5:30 AM"}
+                    </span>
+                  </button>
 
-                    <span className="text-muted-foreground text-xs">–</span>
-
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-muted-foreground font-medium">Close:</span>
-                      <button
-                        type="button"
-                        onClick={() => openPicker(key, "close", label)}
-                        className="px-2.5 py-1 rounded-lg bg-secondary hover:bg-primary/10 hover:text-primary hover:border-primary/40 border border-border text-xs font-semibold text-foreground transition-all flex items-center gap-1"
-                      >
-                        <Clock className="w-3 h-3 text-muted-foreground" />
-                        {day.close || "10:30 PM"}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs font-medium text-muted-foreground/70 bg-muted px-2.5 py-1 rounded-md">
-                    Closed all day
-                  </div>
-                )}
-
-                {/* Desktop switch */}
-                <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-border/60">
-                  <span className="text-xs font-medium text-muted-foreground min-w-[42px] text-right">
-                    {isOpen ? "Open" : "Closed"}
-                  </span>
-                  <Switch checked={isOpen} onCheckedChange={() => handleToggle(key)} />
+                  <button
+                    type="button"
+                    onClick={() => openPicker(key, "close", label)}
+                    className="flex flex-col items-start p-2.5 rounded-xl bg-secondary/80 hover:bg-primary/10 hover:border-primary/40 border border-border transition-colors text-left min-h-[48px]"
+                  >
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                      Closing Time
+                    </span>
+                    <span className="text-xs font-bold text-foreground mt-0.5 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-primary" />
+                      {day.close || "10:30 PM"}
+                    </span>
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <div className="text-xs font-medium text-muted-foreground bg-muted/60 p-2 rounded-xl text-center">
+                  Closed all day
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      {/* Circular Clock Popup */}
+      {/* Circular Clock Bottom Sheet */}
       <CircularTimePickerModal
         open={pickerState.open}
         onClose={() => setPickerState((prev) => ({ ...prev, open: false }))}
