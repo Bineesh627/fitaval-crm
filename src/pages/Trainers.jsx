@@ -45,6 +45,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
+import TrainerSchedulePicker from "@/components/TrainerSchedulePicker";
 
 const SPECIALIZATION_OPTIONS = [
   "Strength Training",
@@ -652,26 +653,13 @@ export default function Trainers() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs font-semibold">Working Days</Label>
-              <Input
-                value={form.working_days}
-                onChange={(e) => setForm({ ...form, working_days: e.target.value })}
-                placeholder="Monday – Friday"
-                className="mt-1 rounded-xl h-11 text-xs"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold">Working Shift</Label>
-              <Input
-                value={form.working_hours}
-                onChange={(e) => setForm({ ...form, working_hours: e.target.value })}
-                placeholder="06:00 AM – 02:00 PM"
-                className="mt-1 rounded-xl h-11 text-xs"
-              />
-            </div>
-          </div>
+          {/* Working Days & Working Shift Interactive Scheduler (Gym Profile Operating Hours Style) */}
+          <TrainerSchedulePicker
+            workingDays={form.working_days}
+            workingHours={form.working_hours}
+            onChangeDays={(days) => setForm((prev) => ({ ...prev, working_days: days }))}
+            onChangeHours={(hours) => setForm((prev) => ({ ...prev, working_hours: hours }))}
+          />
 
           <div>
             <Label className="text-xs font-semibold">Coach Bio</Label>

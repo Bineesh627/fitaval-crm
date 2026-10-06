@@ -61,6 +61,7 @@ export default function GymProfilePage() {
 
   // Mobile image lightbox viewer
   const [activeGalleryImage, setActiveGalleryImage] = useState(null);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
 
   // Collapsible mobile sections
   const [expandedSection, setExpandedSection] = useState({
@@ -192,14 +193,36 @@ export default function GymProfilePage() {
   };
 
   const uploadGalleryImage = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files || files.length === 0) return;
+
+    setUploadingGallery(true);
     try {
-      const { file_url } = await client.integrations.Core.UploadPublicFile({ file });
-      setForm((prev) => ({ ...prev, gallery: [...prev.gallery, file_url] }));
-      toast({ title: "Photo added", description: "Uploaded to gym gallery." });
+      const uploadPromises = files.map((file) =>
+        client.integrations.Core.UploadPublicFile({ file })
+      );
+      const results = await Promise.all(uploadPromises);
+      const newUrls = results.map((r) => r.file_url).filter(Boolean);
+
+      setForm((prev) => ({
+        ...prev,
+        gallery: [...(prev.gallery || []), ...newUrls],
+      }));
+
+      toast({
+        title: `${newUrls.length} ${newUrls.length === 1 ? "photo" : "photos"} added`,
+        description: `Uploaded to gym gallery. Save profile to confirm changes.`,
+      });
     } catch (err) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+      console.error(err);
+      toast({
+        title: "Upload failed",
+        description: err.message || "Failed to upload photos",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingGallery(false);
+      if (e.target) e.target.value = "";
     }
   };
 
@@ -612,24 +635,6 @@ export default function GymProfilePage() {
               </div>
 
               <div>
-                <Label className="text-xs font-semibold">Street Address</Label>
-                <Input
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  className="mt-1 rounded-xl h-11 text-xs sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold">City & State</Label>
-                <Input
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  className="mt-1 rounded-xl h-11 text-xs sm:text-sm"
-                />
-              </div>
-
-              <div>
                 <Label className="text-xs font-semibold">About / Description</Label>
                 <Textarea
                   value={form.description}
@@ -754,13 +759,37 @@ export default function GymProfilePage() {
           {/* 5. Photo Gallery */}
           {activeTab === "gallery" && (
             <div className="space-y-3">
-              <Label className="text-xs font-semibold">Upload Gym Photos</Label>
-              <label className="block">
-                <input type="file" accept="image/*" onChange={uploadGalleryImage} className="hidden" />
-                <div className="border-2 border-dashed border-border rounded-2xl p-6 text-center cursor-pointer hover:bg-muted/40 transition-colors">
-                  <Camera className="w-8 h-8 text-primary mx-auto mb-1" />
-                  <p className="text-xs font-bold text-foreground">Tap to upload photos</p>
-                  <p className="text-[10px] text-muted-foreground">High resolution gym images</p>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Upload Gym Photos</Label>
+                <span className="text-[11px] text-muted-foreground font-medium">
+                  {form.gallery.length} photos in gallery
+                </span>
+              </div>
+              <label className={`block ${uploadingGallery ? "pointer-events-none opacity-70" : "cursor-pointer"}`}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={uploadingGallery}
+                  onChange={uploadGalleryImage}
+                  className="hidden"
+                />
+                <div className="border-2 border-dashed border-border rounded-2xl p-6 text-center hover:bg-muted/40 transition-colors">
+                  {uploadingGallery ? (
+                    <div className="flex flex-col items-center justify-center py-1">
+                      <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin mb-2" />
+                      <p className="text-xs font-bold text-foreground">Uploading photos...</p>
+                      <p className="text-[10px] text-muted-foreground">Adding selected images to gallery</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Camera className="w-8 h-8 text-primary mx-auto mb-1.5" />
+                      <p className="text-xs font-bold text-foreground">Tap to select photos</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        Select multiple gym images at once (JPEG, PNG, WebP)
+                      </p>
+                    </>
+                  )}
                 </div>
               </label>
 

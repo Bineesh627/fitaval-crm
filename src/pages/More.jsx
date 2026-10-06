@@ -199,8 +199,8 @@ export default function More() {
         </div>
       </div>
 
-      {/* Session / Logout Action */}
-      <div className="space-y-2.5 pt-2">
+      {/* Session / Logout Action (Displayed on mobile; desktop uses sidebar logout) */}
+      <div className="space-y-2.5 pt-2 lg:hidden">
         <p className="text-xs font-bold text-foreground uppercase tracking-wider text-muted-foreground px-1">
           Session
         </p>

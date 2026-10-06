@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { client } from "@/api/client";
-import { Plus, TrendingUp, TrendingDown, Wallet, Calendar } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Wallet, Calendar, CreditCard, Download } from "lucide-react";
 import { EmptyState, PageHeader, Sheet, Badge } from "@/components/ui-shared";
 import { format, startOfMonth, endOfMonth, subDays } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { useToast } from "@/components/ui/use-toast";
 
 const incomeCategories = ["Membership", "Renewal", "Personal Training", "Merchandise", "Other"];
 const expenseCategories = ["Rent", "Salary", "Electricity", "Maintenance", "Equipment", "Other"];
 const paymentMethods = ["cash", "card", "upi", "bank_transfer", "other"];
 
+export const formatPaymentMethod = (method) => {
+  if (!method) return "Cash";
+  const m = String(method).toLowerCase();
+  if (m === "upi") return "UPI";
+  if (m === "bank_transfer") return "Bank Transfer";
+  return m.charAt(0).toUpperCase() + m.slice(1);
+};
+
 export default function Finance() {
+  const { toast } = useToast();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("all");
@@ -111,6 +121,68 @@ export default function Finance() {
     }
   };
 
+  const handleExportCSV = () => {
+    const dataToExport = displayTx.length > 0 ? displayTx : transactions;
+    if (!dataToExport || dataToExport.length === 0) {
+      toast({
+        title: "No transactions",
+        description: "There are no transactions available to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const headers = [
+        "Transaction ID",
+        "Date",
+        "Type",
+        "Category",
+        "Amount (INR)",
+        "Payment Method",
+        "Description",
+      ];
+
+      const rows = dataToExport.map((t) => [
+        t.id || "",
+        t.date || "",
+        (t.type || "").toUpperCase(),
+        `"${(t.category || "").replace(/"/g, '""')}"`,
+        t.amount || 0,
+        `"${formatPaymentMethod(t.payment_method)}"`,
+        `"${(t.description || "").replace(/"/g, '""')}"`,
+      ]);
+
+      const csvContent = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `fitaval_finance_export_${format(new Date(), "yyyyMMdd_HHmmss")}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${dataToExport.length} transaction${
+          dataToExport.length === 1 ? "" : "s"
+        } as CSV.`,
+      });
+    } catch (err) {
+      console.error("Export error:", err);
+      toast({
+        title: "Export Failed",
+        description: "An error occurred while generating the CSV.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -125,9 +197,27 @@ export default function Finance() {
         title="Finance"
         subtitle="Income & Expenses"
         action={
-          <button onClick={() => setSheetOpen(true)} className="w-11 h-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm shrink-0">
-            <Plus className="w-5 h-5" strokeWidth={2.5} />
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="h-10 px-3 rounded-xl gap-1.5 text-xs font-semibold shadow-xs hover:bg-muted"
+              title="Export Transactions CSV"
+            >
+              <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Export</span>
+            </Button>
+            <button
+              type="button"
+              onClick={() => setSheetOpen(true)}
+              className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-xs shrink-0 hover:bg-primary/90 transition-colors"
+              title="Add Transaction"
+            >
+              <Plus className="w-5 h-5" strokeWidth={2.5} />
+            </button>
+          </div>
         }
       />
 
@@ -225,26 +315,77 @@ export default function Finance() {
         ))}
       </div>
 
+      {/* Transaction list header */}
+      <div className="flex items-center justify-between mb-2.5 mt-4">
+        <h3 className="font-bold text-sm text-foreground">
+          Transactions ({displayTx.length})
+        </h3>
+      </div>
+
       {/* Transaction list */}
       {displayTx.length === 0 ? (
         <EmptyState icon={Wallet} title="No transactions" description="Record your first income or expense" />
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {displayTx.map((t) => (
-            <div key={t.id} className="flex items-center gap-3 rounded-2xl bg-card border border-border p-3.5 shadow-xs">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${t.type === "income" ? "bg-green-100 dark:bg-emerald-950/40 text-green-600 dark:text-emerald-400" : "bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400"}`}>
+            <div
+              key={t.id}
+              className="flex items-start sm:items-center gap-3 rounded-2xl bg-card border border-border p-3.5 shadow-xs transition-colors hover:border-primary/30"
+            >
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 ${
+                  t.type === "income"
+                    ? "bg-green-100 dark:bg-emerald-950/40 text-green-600 dark:text-emerald-400"
+                    : "bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400"
+                }`}
+              >
                 {t.type === "income" ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-foreground text-sm truncate">{t.description || t.category}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <Badge variant={t.type === "income" ? "green" : "red"}>{t.category}</Badge>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />{format(new Date(t.date), "dd MMM")}</span>
+                <div className="flex items-baseline justify-between gap-2">
+                  <h4 className="font-bold text-foreground text-sm truncate">
+                    {t.category}
+                  </h4>
+                  <span
+                    className={`font-black text-sm sm:text-base shrink-0 ${
+                      t.type === "income" ? "text-green-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
+                    }`}
+                  >
+                    {t.type === "income" ? "+" : "-"}₹{(t.amount || 0).toLocaleString("en-IN")}
+                  </span>
+                </div>
+
+                {/* Description clearly visible */}
+                {t.description ? (
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
+                    {t.description}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground/60 italic mt-0.5">
+                    No description
+                  </p>
+                )}
+
+                {/* Badges: Payment Method & Type & Date */}
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
+                  {/* Payment Method Badge */}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/90 text-[11px] font-semibold text-foreground border border-border/60">
+                    <CreditCard className="w-3 h-3 text-muted-foreground" />
+                    <span>{formatPaymentMethod(t.payment_method)}</span>
+                  </span>
+
+                  {/* Type badge */}
+                  <Badge variant={t.type === "income" ? "green" : "red"}>
+                    {t.type === "income" ? "Income" : "Expense"}
+                  </Badge>
+
+                  {/* Date */}
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium ml-auto sm:ml-0">
+                    <Calendar className="w-3 h-3 text-muted-foreground/80" />
+                    {format(new Date(t.date), "dd MMM yyyy")}
+                  </span>
                 </div>
               </div>
-              <p className={`font-bold text-sm shrink-0 ${t.type === "income" ? "text-green-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                {t.type === "income" ? "+" : "-"}₹{(t.amount || 0).toLocaleString("en-IN")}
-              </p>
             </div>
           ))}
         </div>

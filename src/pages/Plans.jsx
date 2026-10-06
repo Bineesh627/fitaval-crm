@@ -56,9 +56,10 @@ const DURATION_UNITS = [
 ];
 
 /**
- * Radio button toggle component:
- * Left = OFF (Inactive), Right = ON (Active)
- * Styled with tactile pill, radio indicators and clear toggle action.
+ * Tactile Toggle Switch component matching visual reference:
+ * - Green recessed track with green-ringed knob when ON (Active)
+ * - Grey recessed track with grey-ringed knob when OFF (Inactive)
+ * - Knob protrudes vertically above and below track with soft shadow
  */
 export function PlanStatusRadioToggle({
   active = true,
@@ -68,76 +69,62 @@ export function PlanStatusRadioToggle({
 }) {
   const isLarge = size === "md";
 
+  const trackWidth = isLarge ? "w-[60px]" : "w-[52px]";
+  const trackHeight = isLarge ? "h-[28px]" : "h-[24px]";
+  const knobSize = isLarge ? "w-[36px] h-[36px]" : "w-[30px] h-[30px]";
+  const knobBorder = isLarge ? "border-[3.5px]" : "border-[3px]";
+  const knobTranslate = isLarge ? "translate-x-[28px]" : "translate-x-[24px]";
+
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    if (!disabled && onChange) {
+      onChange(!active);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!disabled && onChange) {
+        onChange(!active);
+      }
+    }
+  };
+
   return (
-    <div
-      role="radiogroup"
-      aria-label="Plan Status Toggle"
-      className={`inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-900 p-0.5 border border-slate-200 dark:border-slate-800 shadow-inner select-none transition-all ${
-        disabled ? "opacity-60 pointer-events-none" : ""
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label={active ? "Plan active (ON)" : "Plan inactive (OFF)"}
+      disabled={disabled}
+      onClick={handleToggle}
+      onKeyDown={handleKeyDown}
+      title={active ? "Active: Click to turn OFF" : "Inactive: Click to turn ON"}
+      className={`relative inline-flex items-center shrink-0 cursor-pointer select-none p-0 bg-transparent border-0 outline-hidden focus-visible:ring-2 focus-visible:ring-primary/60 rounded-full transition-opacity touch-manipulation ${
+        disabled ? "opacity-60 pointer-events-none cursor-not-allowed" : ""
       }`}
     >
-      {/* Toggle Left: OFF (Inactive) */}
-      <button
-        type="button"
-        role="radio"
-        aria-checked={!active}
-        disabled={disabled}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (active) onChange(false);
-        }}
-        title="Toggle Plan OFF (Inactive)"
-        className={`flex items-center justify-center gap-1.5 rounded-full font-bold transition-all touch-manipulation cursor-pointer ${
-          isLarge ? "px-3.5 py-1.5 text-xs" : "px-2.5 py-1 text-[11px]"
-        } ${
-          !active
-            ? "bg-slate-800 text-white shadow-xs"
-            : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
-        }`}
-      >
-        <span
-          className={`rounded-full transition-all shrink-0 ${
-            isLarge ? "w-2 h-2" : "w-1.5 h-1.5"
-          } ${
-            !active
-              ? "bg-red-400 ring-2 ring-red-400/40"
-              : "border border-slate-400 bg-transparent"
-          }`}
-        />
-        <span>OFF</span>
-      </button>
-
-      {/* Toggle Right: ON (Active) */}
-      <button
-        type="button"
-        role="radio"
-        aria-checked={active}
-        disabled={disabled}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!active) onChange(true);
-        }}
-        title="Toggle Plan ON (Active)"
-        className={`flex items-center justify-center gap-1.5 rounded-full font-bold transition-all touch-manipulation cursor-pointer ${
-          isLarge ? "px-3.5 py-1.5 text-xs" : "px-2.5 py-1 text-[11px]"
-        } ${
+      {/* Recessed Pill Track */}
+      <span
+        className={`block rounded-full transition-colors duration-200 ease-in-out ${trackWidth} ${trackHeight} ${
           active
-            ? "bg-emerald-600 text-white shadow-xs"
-            : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
+            ? "bg-[#38b54a] dark:bg-emerald-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.32)]"
+            : "bg-[#d8dcdf] dark:bg-slate-700 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]"
         }`}
-      >
-        <span
-          className={`rounded-full transition-all shrink-0 ${
-            isLarge ? "w-2 h-2" : "w-1.5 h-1.5"
-          } ${
-            active
-              ? "bg-white ring-2 ring-emerald-300/50 animate-pulse"
-              : "border border-slate-400 bg-transparent"
-          }`}
-        />
-        <span>ON</span>
-      </button>
-    </div>
+      />
+
+      {/* Tactile Circular Knob with colored ring matching image */}
+      <span
+        aria-hidden="true"
+        className={`absolute left-[-2px] top-1/2 -translate-y-1/2 rounded-full bg-[#e3e6e8] dark:bg-slate-200 shadow-[0_2px_5px_rgba(0,0,0,0.25)] transition-all duration-200 ease-in-out ${knobSize} ${knobBorder} ${
+          active
+            ? `${knobTranslate} border-[#38b54a] dark:border-emerald-500`
+            : "translate-x-0 border-[#9ba1a6] dark:border-slate-400"
+        }`}
+      />
+    </button>
   );
 }
 
@@ -772,7 +759,7 @@ export default function Plans() {
                 Plan Availability
               </span>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Toggle left for OFF, right for ON
+                {form.is_active ? "Status: ON (Active)" : "Status: OFF (Inactive)"}
               </p>
             </div>
             <PlanStatusRadioToggle
